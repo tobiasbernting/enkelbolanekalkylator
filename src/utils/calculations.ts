@@ -11,6 +11,7 @@ export interface LoanCalculation {
 
 export interface LoanPortion {
   id: string;
+  bankId: string;
   amountSeK: number;
   termYears: number;
   interestRate: number;
@@ -18,6 +19,7 @@ export interface LoanPortion {
 
 export interface PortionDetail {
   id: string;
+  bankId: string;
   amountSeK: number;
   termYears: number;
   interestRate: number;
@@ -107,6 +109,7 @@ export function calculatePortionDetail(
 
   return {
     id: portion.id,
+    bankId: portion.bankId,
     amountSeK: portion.amountSeK,
     termYears: portion.termYears,
     interestRate: portion.interestRate,

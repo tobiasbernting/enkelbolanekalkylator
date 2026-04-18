@@ -1,6 +1,6 @@
 # Enkel Bolånekalkylator
 
-A simple mortgage calculator built with Vite and React.
+A simple mortgage calculator built with Vite and React. Extremly vibe coded.
 
 ## Project Setup
 

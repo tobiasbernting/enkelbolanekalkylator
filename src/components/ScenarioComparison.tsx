@@ -1,4 +1,3 @@
-import { useMemo, useState } from 'react'
 import {
   Box,
   Grid,
@@ -21,7 +20,8 @@ import {
   VStack,
 } from '@chakra-ui/react'
 import { formatCurrency, LoanPortion } from '../utils/calculations'
-import { BANK_RATE_PRESETS, BankRateType, getRatesByType } from '../data/bankRates'
+import { BankRateType } from '../data/bankRates'
+import { useScenarioComparison } from '../hooks/useScenarioComparison'
 
 interface ScenarioComparisonProps {
   loanPortions: LoanPortion[]
@@ -36,9 +36,14 @@ export function ScenarioComparison({
   selectedBank,
   selectedRateType,
 }: ScenarioComparisonProps) {
-  const [rateShiftPercentPoints, setRateShiftPercentPoints] = useState(0)
+  const viewModel = useScenarioComparison({
+    loanPortions,
+    monthlyAmortizationSeK,
+    selectedBank,
+    selectedRateType,
+  })
 
-  if (loanPortions.length === 0) {
+  if (!viewModel.hasPortions) {
     return (
       <Box bg="white" p={6} borderRadius="lg" boxShadow="md">
         <Heading as="h2" size="lg" mb={3}>
@@ -47,72 +52,6 @@ export function ScenarioComparison({
         <Text color="gray.500">Lägg till låneportioner för att simulera ränteförändring.</Text>
       </Box>
     )
-  }
-
-  const monthlyInterestForShift = (shiftPercentPoints: number): number => {
-    return loanPortions.reduce((sum, portion) => {
-      const shiftedRate = Math.max(0, portion.interestRate + shiftPercentPoints)
-      return sum + (portion.amountSeK * shiftedRate) / 100 / 12
-    }, 0)
-  }
-
-  const clampShift = (value: number): number => Math.min(10, Math.max(-10, value))
-
-  const selectedPreset =
-    BANK_RATE_PRESETS.find((preset) => preset.id === selectedBank) ?? BANK_RATE_PRESETS[0]
-  const bankRatesByTerm = getRatesByType(selectedPreset, selectedRateType)
-  const rateTypeLabel = selectedRateType === 'list' ? 'Listränta' : 'Snittränta'
-
-  const totalLoanAmountSeK = useMemo(
-    () => loanPortions.reduce((sum, portion) => sum + portion.amountSeK, 0),
-    [loanPortions]
-  )
-
-  const weightedAverageRate = useMemo(() => {
-    if (totalLoanAmountSeK <= 0) {
-      return 0
-    }
-
-    const weightedSum = loanPortions.reduce(
-      (sum, portion) => sum + portion.interestRate * portion.amountSeK,
-      0
-    )
-    return weightedSum / totalLoanAmountSeK
-  }, [loanPortions, totalLoanAmountSeK])
-
-  const minRate = useMemo(
-    () => Math.min(...loanPortions.map((portion) => portion.interestRate)),
-    [loanPortions]
-  )
-
-  const maxRate = useMemo(
-    () => Math.max(...loanPortions.map((portion) => portion.interestRate)),
-    [loanPortions]
-  )
-
-  const baseMonthlyInterest = useMemo(() => monthlyInterestForShift(0), [loanPortions])
-  const adjustedMonthlyInterest = useMemo(
-    () => monthlyInterestForShift(rateShiftPercentPoints),
-    [loanPortions, rateShiftPercentPoints]
-  )
-
-  const baseMonthlyTotal = baseMonthlyInterest + monthlyAmortizationSeK
-  const adjustedMonthlyTotal = adjustedMonthlyInterest + monthlyAmortizationSeK
-
-  const deltaLabel = `${rateShiftPercentPoints > 0 ? '+' : ''}${rateShiftPercentPoints.toFixed(2)} %-enheter`
-
-  const sortedPortions = useMemo(
-    () => [...loanPortions].sort((a, b) => a.termYears - b.termYears),
-    [loanPortions]
-  )
-
-  const formatTerm = (termYears: number): string => {
-    if (termYears === 0.25) return '3 mån'
-    return `${termYears} år`
-  }
-
-  const formatPortionHeader = (index: number): string => {
-    return `Lån ${index + 1}`
   }
 
   return (
@@ -131,10 +70,10 @@ export function ScenarioComparison({
             Nuvarande ränteläge
           </Text>
           <Text fontSize="sm" color="gray.700">
-            Viktad snittränta: {weightedAverageRate.toFixed(2)}% (spann {minRate.toFixed(2)}% - {maxRate.toFixed(2)}%)
+            Viktad snittränta: {viewModel.weightedAverageRate.toFixed(2)}% (spann {viewModel.minRate.toFixed(2)}% - {viewModel.maxRate.toFixed(2)}%)
           </Text>
           <Text fontSize="sm" color="gray.700">
-            Totalt lånebelopp: {formatCurrency(totalLoanAmountSeK)}
+            Totalt lånebelopp: {formatCurrency(viewModel.totalLoanAmountSeK)}
           </Text>
         </Box>
 
@@ -148,8 +87,8 @@ export function ScenarioComparison({
                 min={-10}
                 max={10}
                 step={0.01}
-                value={rateShiftPercentPoints}
-                onChange={(value) => setRateShiftPercentPoints(value)}
+                value={viewModel.rateShiftPercentPoints}
+                onChange={viewModel.onRateShiftChange}
                 colorScheme="orange"
               >
                 <SliderTrack>
@@ -163,13 +102,8 @@ export function ScenarioComparison({
                 min={-10}
                 max={10}
                 step={0.01}
-                value={rateShiftPercentPoints}
-                onChange={(valueString) => {
-                  const nextValue = Number(valueString)
-                  if (Number.isFinite(nextValue)) {
-                    setRateShiftPercentPoints(clampShift(nextValue))
-                  }
-                }}
+                value={viewModel.rateShiftPercentPoints}
+                onChange={viewModel.onRateShiftInputChange}
               >
                 <NumberInputField />
               </NumberInput>
@@ -182,10 +116,10 @@ export function ScenarioComparison({
             <Thead bg="gray.50">
               <Tr>
                 <Th>Scenario</Th>
-                {sortedPortions.map((portion, index) => (
+                {viewModel.sortedPortions.map((portion, index) => (
                   <Th key={portion.id} isNumeric>
-                    <Text>{formatPortionHeader(index)}</Text>
-                    <Text fontWeight="normal">({formatTerm(portion.termYears)})</Text>
+                    <Text>{viewModel.formatPortionHeader(index)}</Text>
+                    <Text fontWeight="normal">({viewModel.formatTerm(portion.termYears)})</Text>
                   </Th>
                 ))}
                 <Th isNumeric>Månadsränta</Th>
@@ -196,34 +130,34 @@ export function ScenarioComparison({
             <Tbody>
               <Tr bg="orange.50">
                 <Td fontWeight="bold">Nuvarande</Td>
-                {sortedPortions.map((portion) => (
+                {viewModel.sortedPortions.map((portion) => (
                   <Td key={`base-${portion.id}`} isNumeric>{portion.interestRate.toFixed(2)}%</Td>
                 ))}
-                <Td isNumeric fontWeight="bold">{formatCurrency(baseMonthlyInterest)}</Td>
-                <Td isNumeric fontWeight="bold">{formatCurrency(baseMonthlyTotal)}</Td>
+                <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyInterest)}</Td>
+                <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyTotal)}</Td>
                 <Td isNumeric>0 SEK</Td>
               </Tr>
               <Tr>
-                <Td>Justerat ({deltaLabel})</Td>
-                {sortedPortions.map((portion) => {
-                  const adjustedRate = Math.max(0, portion.interestRate + rateShiftPercentPoints)
+                <Td>Justerat ({viewModel.deltaLabel})</Td>
+                {viewModel.sortedPortions.map((portion) => {
+                  const adjustedRate = Math.max(0, portion.interestRate + viewModel.rateShiftPercentPoints)
                   return (
                     <Td key={`adjusted-${portion.id}`} isNumeric>{adjustedRate.toFixed(2)}%</Td>
                   )
                 })}
-                <Td isNumeric>{formatCurrency(adjustedMonthlyInterest)}</Td>
-                <Td isNumeric>{formatCurrency(adjustedMonthlyTotal)}</Td>
+                <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyInterest)}</Td>
+                <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyTotal)}</Td>
                 <Td
                   isNumeric
                   color={
-                    adjustedMonthlyTotal > baseMonthlyTotal
+                    viewModel.adjustedMonthlyTotal > viewModel.baseMonthlyTotal
                       ? 'orange.600'
-                      : adjustedMonthlyTotal < baseMonthlyTotal
+                      : viewModel.adjustedMonthlyTotal < viewModel.baseMonthlyTotal
                         ? 'green.600'
                         : 'gray.600'
                   }
                 >
-                  {formatCurrency(adjustedMonthlyTotal - baseMonthlyTotal)}
+                  {formatCurrency(viewModel.adjustedMonthlyTotal - viewModel.baseMonthlyTotal)}
                 </Td>
               </Tr>
             </Tbody>
@@ -239,24 +173,24 @@ export function ScenarioComparison({
               <Thead bg="gray.50">
                 <Tr>
                   <Th>Löptid</Th>
-                  <Th isNumeric>{selectedPreset.label} ({rateTypeLabel})</Th>
+                  <Th isNumeric>{viewModel.selectedPresetLabel} ({viewModel.rateTypeLabel})</Th>
                   <Th isNumeric>Bank justerad</Th>
                   <Th isNumeric>Din ränta</Th>
                   <Th isNumeric>Din justerad</Th>
                 </Tr>
               </Thead>
               <Tbody>
-                {sortedPortions.map((portion) => {
-                  const baseBankRate = bankRatesByTerm[portion.termYears]
+                  {viewModel.sortedPortions.map((portion) => {
+                    const baseBankRate = viewModel.bankRatesByTerm[portion.termYears]
                   const adjustedBankRate =
                     baseBankRate !== undefined
-                      ? Math.max(0, baseBankRate + rateShiftPercentPoints)
+                        ? Math.max(0, baseBankRate + viewModel.rateShiftPercentPoints)
                       : null
-                  const adjustedUserRate = Math.max(0, portion.interestRate + rateShiftPercentPoints)
+                    const adjustedUserRate = Math.max(0, portion.interestRate + viewModel.rateShiftPercentPoints)
 
                   return (
                     <Tr key={portion.id}>
-                      <Td>{formatTerm(portion.termYears)}</Td>
+                        <Td>{viewModel.formatTerm(portion.termYears)}</Td>
                       <Td isNumeric>{baseBankRate !== undefined ? `${baseBankRate.toFixed(2)}%` : '-'}</Td>
                       <Td isNumeric>{adjustedBankRate !== null ? `${adjustedBankRate.toFixed(2)}%` : '-'}</Td>
                       <Td isNumeric>{portion.interestRate.toFixed(2)}%</Td>
@@ -270,7 +204,7 @@ export function ScenarioComparison({
         </Box>
 
         <HStack justify="space-between" fontSize="sm" color="gray.600" flexWrap="wrap">
-          <Text>Aktiv förändring: {deltaLabel}</Text>
+          <Text>Aktiv förändring: {viewModel.deltaLabel}</Text>
           <Text>Amortering i simulering: {formatCurrency(monthlyAmortizationSeK)}/mån</Text>
         </HStack>
       </VStack>

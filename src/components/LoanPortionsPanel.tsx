@@ -3,6 +3,8 @@ import {
   Button,
   VStack,
   HStack,
+  Grid,
+  GridItem,
   Text,
   Input,
   Select,
@@ -25,7 +27,6 @@ interface LoanPortionsPanelProps {
   onSelectedBankChange: (bankId: string) => void;
   onSelectedRateTypeChange: (rateType: BankRateType) => void;
   defaultInterestRate: number;
-  defaultLoanTerm: number;
   amountToFinance: number;
 }
 
@@ -36,8 +37,10 @@ const TERM_OPTIONS = [
   { label: '3 år', value: 3 },
   { label: '4 år', value: 4 },
   { label: '5 år', value: 5 },
+  { label: '6 år', value: 6 },
   { label: '7 år', value: 7 },
   { label: '8 år', value: 8 },
+  { label: '9 år', value: 9 },
   { label: '10 år', value: 10 },
 ];
 
@@ -49,34 +52,66 @@ export function LoanPortionsPanel({
   onSelectedBankChange,
   onSelectedRateTypeChange,
   defaultInterestRate, 
-  defaultLoanTerm, 
   amountToFinance 
 }: LoanPortionsPanelProps) {
   const selectedPreset = BANK_RATE_PRESETS.find((preset) => preset.id === selectedBank) ?? BANK_RATE_PRESETS[0];
-  const activeRatesByTerm = getRatesByType(selectedPreset, selectedRateType);
+  const totalAmount = portions.reduce((sum, p) => sum + p.amountSeK, 0);
 
-  const updatePortionsWithRates = (ratesByTerm: Record<number, number>) => {
-    const updatedPortions = portions.map((portion) => {
-      const presetRate = ratesByTerm[portion.termYears];
-      if (presetRate === undefined) {
-        return portion;
-      }
+  const normalizeBankId = (bankId: string | undefined): string => {
+    if (bankId && BANK_RATE_PRESETS.some((preset) => preset.id === bankId)) {
+      return bankId;
+    }
 
-      return {
-        ...portion,
-        interestRate: presetRate,
-      };
-    });
+    return selectedBank;
+  };
 
-    onPortionsChange(updatedPortions);
+  const getRatesForBank = (bankId: string | undefined, rateType: BankRateType) => {
+    const normalizedBankId = normalizeBankId(bankId);
+    const preset = BANK_RATE_PRESETS.find((item) => item.id === normalizedBankId) ?? selectedPreset;
+    return getRatesByType(preset, rateType);
+  };
+
+  const getDefaultTermForBank = (): number => {
+    const ratesByTerm = getRatesForBank(selectedBank, selectedRateType);
+    return (
+      TERM_OPTIONS.find((option) => ratesByTerm[option.value] !== undefined)?.value ??
+      1
+    );
+  };
+
+  const getDefaultRateForBankTerm = (bankId: string, termYears: number): number => {
+    const ratesByTerm = getRatesForBank(bankId, selectedRateType);
+    return ratesByTerm[termYears] ?? defaultInterestRate;
+  };
+
+  const formatIntegerWithSpaces = (value: number): string => {
+    if (!Number.isFinite(value)) {
+      return '';
+    }
+
+    return new Intl.NumberFormat('sv-SE', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Math.max(0, Math.round(value)));
+  };
+
+  const parseFormattedNumber = (value: string): number => {
+    const normalized = value.replace(/\s/g, '').replace(',', '.');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
   };
 
   const addPortion = () => {
+    const bankId = selectedBank;
+    const termYears = getDefaultTermForBank();
+    const remainingAmount = Math.max(0, amountToFinance - totalAmount);
+
     const newPortion: LoanPortion = {
       id: `portion-${Date.now()}`,
-      amountSeK: 0,
-      termYears: 1,
-      interestRate: 6, // Default to current global rate
+      bankId,
+      amountSeK: remainingAmount,
+      termYears,
+      interestRate: getDefaultRateForBankTerm(bankId, termYears),
     };
     onPortionsChange([...portions, newPortion]);
   };
@@ -85,16 +120,21 @@ export function LoanPortionsPanel({
     onPortionsChange(portions.filter(p => p.id !== id));
   };
 
-  const updatePortion = (id: string, field: keyof LoanPortion, value: number) => {
+  const updatePortionNumber = (
+    id: string,
+    field: 'amountSeK' | 'termYears' | 'interestRate',
+    value: number
+  ) => {
     const updated = portions.map((p) => {
       if (p.id !== id) {
         return p;
       }
 
-      const updatedPortion = { ...p, [field]: value } as LoanPortion;
+      const updatedPortion = { ...p, [field]: value, bankId: selectedBank } as LoanPortion;
 
       if (field === 'termYears' && selectedPreset) {
-        const rateForSelectedTerm = activeRatesByTerm[value];
+        const ratesForBank = getRatesForBank(selectedBank, selectedRateType);
+        const rateForSelectedTerm = ratesForBank[value];
         if (rateForSelectedTerm !== undefined) {
           updatedPortion.interestRate = rateForSelectedTerm;
         }
@@ -105,57 +145,43 @@ export function LoanPortionsPanel({
     onPortionsChange(updated);
   };
 
-  const autoFillFromMainLoan = () => {
-    if (amountToFinance > 0) {
-      const newPortion: LoanPortion = {
-        id: `portion-${Date.now()}`,
-        amountSeK: amountToFinance,
-        termYears: defaultLoanTerm,
-        interestRate: defaultInterestRate,
-      };
-      onPortionsChange([newPortion]);
-    }
-  };
-
-  const applyBankPreset = () => {
-    const preset = selectedPreset;
-    if (!preset) {
-      return;
-    }
-
-    if (portions.length === 0) {
-      const supportedTerms = TERM_OPTIONS.filter((option) => activeRatesByTerm[option.value] !== undefined);
-      if (supportedTerms.length === 0) {
-        return;
-      }
-
-      const roundedAmountToFinance = Math.max(0, Math.round(amountToFinance));
-      const baseAmount = Math.floor(roundedAmountToFinance / supportedTerms.length);
-      const remainder = roundedAmountToFinance - baseAmount * supportedTerms.length;
-
-      const newPortions: LoanPortion[] = supportedTerms.map((option, index) => ({
-        id: `portion-${Date.now()}-${index}`,
-        amountSeK: baseAmount + (index === supportedTerms.length - 1 ? remainder : 0),
-        termYears: option.value,
-        interestRate: activeRatesByTerm[option.value],
-      }));
-
-      onPortionsChange(newPortions);
-      return;
-    }
-
-    updatePortionsWithRates(activeRatesByTerm);
-  };
-
   const handleRateTypeChange = (nextRateType: BankRateType) => {
     onSelectedRateTypeChange(nextRateType);
-    const nextRatesByTerm = getRatesByType(selectedPreset, nextRateType);
-    updatePortionsWithRates(nextRatesByTerm);
+    const updated = portions.map((portion) => {
+      const ratesForBank = getRatesForBank(selectedBank, nextRateType);
+      const presetRate = ratesForBank[portion.termYears];
+      if (presetRate === undefined) {
+        return { ...portion, bankId: selectedBank };
+      }
+
+      return {
+        ...portion,
+        bankId: selectedBank,
+        interestRate: presetRate,
+      };
+    });
+
+    onPortionsChange(updated);
   };
 
-  const totalAmount = portions.reduce((sum, p) => sum + p.amountSeK, 0);
+  const handleBankChange = (nextBankId: string) => {
+    onSelectedBankChange(nextBankId);
 
-  const portionsSumMismatch = Math.abs(totalAmount - amountToFinance) > 1;
+    const updated = portions.map((portion) => {
+      const ratesForBank = getRatesForBank(nextBankId, selectedRateType);
+      const presetRate = ratesForBank[portion.termYears];
+
+      return {
+        ...portion,
+        bankId: nextBankId,
+        interestRate: presetRate !== undefined ? presetRate : portion.interestRate,
+      };
+    });
+
+    onPortionsChange(updated);
+  };
+
+  const portionsSumMismatch = portions.length > 0 && Math.abs(totalAmount - amountToFinance) > 1;
 
   return (
     <Box
@@ -166,32 +192,25 @@ export function LoanPortionsPanel({
       boxShadow="xl"
       mt={2}
     >
-      <VStack spacing={4} align="stretch">
+      <VStack spacing={5} align="stretch">
         {portionsSumMismatch && (
           <Box bg="yellow.100" color="orange.800" p={3} borderRadius="md" fontWeight="bold">
             Summan av alla låneportioner ({totalAmount.toLocaleString('sv-SE')} SEK) matchar inte belopp att finansiera ({amountToFinance.toLocaleString('sv-SE')} SEK).
           </Box>
         )}
-        <HStack justify="space-between" align="center">
-          <Heading size="xl" color="blue.800">Låneportioner</Heading>
-          <Button
-            colorScheme="blue"
-            variant="outline"
-            onClick={autoFillFromMainLoan}
-            size="sm"
-            fontWeight="bold"
-          >
-            Fyll i från huvudlån
-          </Button>
-        </HStack>
+        <Heading size="lg" color="blue.800">Låneportioner</Heading>
 
-        <HStack spacing={3} align="end" flexWrap="wrap">
-          <Box minW="220px">
+        <Grid
+          templateColumns="repeat(auto-fit, minmax(220px, 1fr))"
+          gap={3}
+          alignItems="end"
+        >
+          <GridItem>
             <Text fontSize="sm" color="gray.700" mb={1} fontWeight="medium">Välj bank</Text>
             <Select
               value={selectedBank}
-              onChange={(e) => onSelectedBankChange(e.target.value)}
-              size="sm"
+              onChange={(e) => handleBankChange(e.target.value)}
+              size="md"
               bg="white"
             >
               {BANK_RATE_PRESETS.map((preset) => (
@@ -200,31 +219,36 @@ export function LoanPortionsPanel({
                 </option>
               ))}
             </Select>
-          </Box>
-          <Box minW="200px">
+          </GridItem>
+          <GridItem>
             <Text fontSize="sm" color="gray.700" mb={1} fontWeight="medium">Räntetyp</Text>
             <Select
               value={selectedRateType}
               onChange={(e) => handleRateTypeChange(e.target.value as BankRateType)}
-              size="sm"
+              size="md"
               bg="white"
             >
               <option value="average">Snittränta</option>
               <option value="list">Listränta</option>
             </Select>
-          </Box>
-          <Button colorScheme="teal" variant="solid" onClick={applyBankPreset} size="sm" fontWeight="bold">
-            Fyll räntor från bank
-          </Button>
-          <Text fontSize="xs" color="gray.500" alignSelf="center">
-            {selectedPreset?.label} uppdaterad {selectedPreset?.updatedAt}
-          </Text>
-        </HStack>
+          </GridItem>
+        </Grid>
+
+        <Box bg="whiteAlpha.700" borderWidth={1} borderColor="gray.200" p={3} borderRadius="md">
+          <HStack justify="space-between" flexWrap="wrap" gap={2}>
+            <Text fontSize="sm" color="gray.600">
+              Välj en bank och räntetyp. Alla låneportioner följer samma bank för jämförelse mellan banker.
+            </Text>
+            <Text fontSize="xs" color="gray.500" fontWeight="medium">
+              {selectedPreset?.label} uppdaterad {selectedPreset?.updatedAt}
+            </Text>
+          </HStack>
+        </Box>
 
         <Button
           colorScheme="blue"
           onClick={addPortion}
-          size="md"
+          size="lg"
           fontWeight="bold"
           alignSelf="flex-start"
         >
@@ -232,7 +256,7 @@ export function LoanPortionsPanel({
         </Button>
 
         {portions.length > 0 && (
-          <Box maxH="360px" overflow="auto" borderWidth={1} borderColor="gray.200" borderRadius="md" bg="white">
+          <Box maxH="360px" overflow="auto" borderWidth={1} borderColor="gray.200" borderRadius="lg" bg="white">
             <Table size="sm" variant="simple">
               <Thead bg="gray.50" position="sticky" top={0} zIndex={1}>
                 <Tr>
@@ -247,18 +271,24 @@ export function LoanPortionsPanel({
                   <Tr key={portion.id}>
                     <Td>
                       <Input
-                        type="number"
-                        value={portion.amountSeK || ''}
-                        onChange={(e) => updatePortion(portion.id, 'amountSeK', Number(e.target.value) || 0)}
+                        value={formatIntegerWithSpaces(portion.amountSeK)}
+                        onChange={(e) =>
+                          updatePortionNumber(
+                            portion.id,
+                            'amountSeK',
+                            parseFormattedNumber(e.target.value)
+                          )
+                        }
                         placeholder="0"
                         size="md"
+                        inputMode="numeric"
                       />
                     </Td>
                     <Td>
                       <Input
                         type="number"
                         value={portion.interestRate || ''}
-                        onChange={(e) => updatePortion(portion.id, 'interestRate', Number(e.target.value) || 0)}
+                        onChange={(e) => updatePortionNumber(portion.id, 'interestRate', Number(e.target.value) || 0)}
                         placeholder="6.0"
                         size="md"
                         step="0.1"
@@ -267,7 +297,7 @@ export function LoanPortionsPanel({
                     <Td>
                       <Select
                         value={portion.termYears}
-                        onChange={(e) => updatePortion(portion.id, 'termYears', Number(e.target.value))}
+                        onChange={(e) => updatePortionNumber(portion.id, 'termYears', Number(e.target.value))}
                         size="md"
                       >
                         {TERM_OPTIONS.map((option) => (
@@ -279,7 +309,7 @@ export function LoanPortionsPanel({
                     </Td>
                     <Td>
                       <Button
-                        size="md"
+                        size="sm"
                         colorScheme="red"
                         variant="outline"
                         onClick={() => removePortion(portion.id)}

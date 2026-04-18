@@ -14,9 +14,9 @@ import {
 } from '@chakra-ui/react'
 import {
   AmortizationRow,
-  calculateRequiredAmortizationRate,
   formatCurrency,
 } from '../utils/calculations'
+import { useAmortizationScheduleView } from '../hooks/useAmortizationScheduleView'
 
 interface AmortizationScheduleProps {
   schedule: AmortizationRow[]
@@ -34,34 +34,12 @@ export function AmortizationSchedule({
   title = 'Amorteringsplan',
 }: AmortizationScheduleProps) {
   const bgHover = useColorModeValue('gray.50', 'gray.700')
-  const hasPrincipalReduction = schedule.some((row) => row.annualPrincipalSeK > 0)
-
-  const findYearForBalance = (thresholdBalance: number): number | null => {
-    const hit = schedule.find((row) => row.remainingBalanceSeK <= thresholdBalance)
-    return hit ? hit.period : null
-  }
-
-  const yearAt70 = findYearForBalance(housePrice * 0.7)
-  const yearAt50 = findYearForBalance(housePrice * 0.5)
-  const debtRatioThresholdBalance = annualIncome > 0 ? annualIncome * 4.5 : null
-  const yearAtDebtRatio =
-    debtRatioThresholdBalance !== null
-      ? findYearForBalance(debtRatioThresholdBalance)
-      : null
-
-  const currentRate = calculateRequiredAmortizationRate(
+  const viewModel = useAmortizationScheduleView({
+    schedule,
     initialLoanAmount,
     housePrice,
-    annualIncome
-  )
-
-  const getMilestonesForYear = (year: number): string[] => {
-    const milestones: string[] = []
-    if (yearAt70 === year) milestones.push('70% nådd')
-    if (yearAt50 === year) milestones.push('50% nådd')
-    if (yearAtDebtRatio === year) milestones.push('Skuldkvot 4,5x nådd')
-    return milestones
-  }
+    annualIncome,
+  })
   
   if (schedule.length === 0) {
     return (
@@ -93,7 +71,7 @@ export function AmortizationSchedule({
             </Thead>
             <Tbody>
               {schedule.map((row, index) => {
-                const milestones = getMilestonesForYear(row.period)
+                const milestones = viewModel.getMilestonesForYear(row.period)
                 return (
                 <Tr
                   key={index}
@@ -148,7 +126,7 @@ export function AmortizationSchedule({
           <Text>
             Markerade rader visar år då en ny amorteringsmilstolpe passeras.
           </Text>
-          {hasPrincipalReduction ? (
+          {viewModel.hasPrincipalReduction ? (
             <Text mt={2}>
               Med detta upplägg minskar skulden successivt genom amortering.
             </Text>
@@ -161,17 +139,17 @@ export function AmortizationSchedule({
           <Box mt={3}>
             <Text fontWeight="bold">När börjar du betala mindre amortering?</Text>
             <Text>
-              Nuvarande amorteringskrav: {(currentRate * 100).toFixed(1)}% per år.
+              Nuvarande amorteringskrav: {(viewModel.currentRate * 100).toFixed(1)}% per år.
             </Text>
             <Text>
-              70%-nivå ({formatCurrency(housePrice * 0.7)}): {yearAt70 ? `uppnås runt år ${yearAt70}` : 'inte uppnådd i planen'}.
+              70%-nivå ({formatCurrency(housePrice * 0.7)}): {viewModel.yearAt70 ? `uppnås runt år ${viewModel.yearAt70}` : 'inte uppnådd i planen'}.
             </Text>
             <Text>
-              50%-nivå ({formatCurrency(housePrice * 0.5)}): {yearAt50 ? `uppnås runt år ${yearAt50}` : 'inte uppnådd i planen'}.
+              50%-nivå ({formatCurrency(housePrice * 0.5)}): {viewModel.yearAt50 ? `uppnås runt år ${viewModel.yearAt50}` : 'inte uppnådd i planen'}.
             </Text>
             {annualIncome > 0 ? (
               <Text>
-                Skuldkvot 4,5x ({formatCurrency(annualIncome * 4.5)}): {yearAtDebtRatio ? `uppnås runt år ${yearAtDebtRatio}` : 'inte uppnådd i planen'}.
+                Skuldkvot 4,5x ({formatCurrency(annualIncome * 4.5)}): {viewModel.yearAtDebtRatio ? `uppnås runt år ${viewModel.yearAtDebtRatio}` : 'inte uppnådd i planen'}.
               </Text>
             ) : (
               <Text>
