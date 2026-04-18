@@ -13,10 +13,12 @@ import {
   VStack,
 } from '@chakra-ui/react'
 import { LoanPortionsPanel } from './LoanPortionsPanel'
+import { MonthlyBudgetSection } from './MonthlyBudgetSection'
 import type { LoanPortion } from '../utils/calculations'
 import type { BankRateType } from '../data/bankRates'
 import { useInputPanelState } from '../hooks/useInputPanelState'
 import type { DownPaymentMode } from '../hooks/useMortgageState'
+import type { MonthlyBudgetItem } from '../types/monthlyBudget'
 
 interface InputPanelProps {
   housePrice: number;
@@ -30,6 +32,7 @@ interface InputPanelProps {
   selectedRateType: BankRateType;
   downPaymentMode: DownPaymentMode;
   loanPortions: LoanPortion[];
+  monthlyBudgetItems: MonthlyBudgetItem[];
   onHousePriceChange: (value: number) => void;
   onDownPaymentChange: (value: number) => void;
   onMonthlyIncomeChange: (value: number) => void;
@@ -40,6 +43,7 @@ interface InputPanelProps {
   onSelectedRateTypeChange: (rateType: BankRateType) => void;
   onDownPaymentModeChange: (mode: DownPaymentMode) => void;
   onLoanPortionsChange: (portions: LoanPortion[]) => void;
+  onMonthlyBudgetItemsChange: (items: MonthlyBudgetItem[]) => void;
   onReset: () => void;
 }
 
@@ -55,6 +59,7 @@ export function InputPanel({
   selectedRateType,
   downPaymentMode,
   loanPortions,
+  monthlyBudgetItems,
   onHousePriceChange,
   onDownPaymentChange,
   onMonthlyIncomeChange,
@@ -65,6 +70,7 @@ export function InputPanel({
   onSelectedRateTypeChange,
   onDownPaymentModeChange,
   onLoanPortionsChange,
+  onMonthlyBudgetItemsChange,
   onReset,
 }: InputPanelProps) {
   const viewModel = useInputPanelState({
@@ -127,31 +133,34 @@ export function InputPanel({
             />
           </FormControl>
 
-          <FormControl>
-            <FormLabel mb={2} lineHeight="short" whiteSpace="normal">
-              <HStack justify="space-between" align="center" spacing={2} flexWrap="wrap">
-                <Text fontSize="inherit" fontWeight="inherit">
-                  Handpenning {downPaymentMode === 'percentage' && `(${viewModel.downPaymentPercent.toFixed(1)}%)`}
-                </Text>
-                <HStack spacing={2} align="center">
-                  <Text fontSize="sm" fontWeight={downPaymentMode === 'amount' ? 'semibold' : 'medium'} color={downPaymentMode === 'amount' ? 'gray.900' : 'gray.600'}>
-                    Belopp
-                  </Text>
-                  <Switch
-                    size="sm"
-                    colorScheme="blue"
-                    isChecked={downPaymentMode === 'percentage'}
-                    onChange={(e) => viewModel.onDownPaymentModeSwitchChange(e.target.checked)}
-                  />
-                  <Text fontSize="sm" fontWeight={downPaymentMode === 'percentage' ? 'semibold' : 'medium'} color={downPaymentMode === 'percentage' ? 'gray.900' : 'gray.600'}>
-                    Procent
-                  </Text>
-                </HStack>
-              </HStack>
+          <FormControl position="relative">
+            <FormLabel mb={2} lineHeight="short" whiteSpace="normal" pr={{ base: 0, md: '172px' }}>
+              Handpenning
             </FormLabel>
+            <HStack
+              spacing={2}
+              align="center"
+              position={{ base: 'static', md: 'absolute' }}
+              top="0"
+              right="0"
+              mb={{ base: 2, md: 0 }}
+            >
+              <Text fontSize="sm" fontWeight={downPaymentMode === 'amount' ? 'semibold' : 'medium'} color={downPaymentMode === 'amount' ? 'gray.900' : 'gray.600'}>
+                Belopp
+              </Text>
+              <Switch
+                size="sm"
+                colorScheme="blue"
+                isChecked={downPaymentMode === 'percentage'}
+                onChange={(e) => viewModel.onDownPaymentModeSwitchChange(e.target.checked)}
+              />
+              <Text fontSize="sm" fontWeight={downPaymentMode === 'percentage' ? 'semibold' : 'medium'} color={downPaymentMode === 'percentage' ? 'gray.900' : 'gray.600'}>
+                Procent
+              </Text>
+            </HStack>
             {downPaymentMode === 'percentage' ? (
               <NumberInput
-                value={Number.isFinite(viewModel.downPaymentPercent) ? viewModel.downPaymentPercent : 0}
+                value={Number.isFinite(viewModel.downPaymentPercent) ? Number(viewModel.downPaymentPercent.toFixed(1)) : 0}
                 onChange={viewModel.onDownPaymentPercentChange}
                 min={0}
                 max={100}
@@ -172,7 +181,7 @@ export function InputPanel({
           </FormControl>
         </Grid>
 
-        <Grid templateColumns={{ base: '1fr', md: '1fr 1fr', xl: '1fr 1fr 1fr' }} gap={4} alignItems="end">
+        <Grid templateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={4} alignItems="start">
           <FormControl>
             <FormLabel mb={2} lineHeight="short" whiteSpace="normal">Amortering/mån (SEK)</FormLabel>
             <Input
@@ -210,6 +219,11 @@ export function InputPanel({
         <Text fontSize="xs" color="gray.500" mt={-2}>
           Årsinkomst beräknas automatiskt som månadsinkomst × 12. Amortering kan inte vara lägre än amorteringskravet.
         </Text>
+
+        <MonthlyBudgetSection
+          items={monthlyBudgetItems}
+          onItemsChange={onMonthlyBudgetItemsChange}
+        />
 
 
         <LoanPortionsPanel

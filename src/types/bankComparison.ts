@@ -13,6 +13,7 @@ export interface BankComparisonRow {
   monthlyInterestSeK: number
   monthlyEffectiveInterestSeK: number
   monthlyOperatingCostSeK: number
+  monthlyBudgetCostSeK: number
   monthlyAmortizationSeK: number
   monthlyPaymentSeK: number
   monthlyEffectivePaymentSeK: number

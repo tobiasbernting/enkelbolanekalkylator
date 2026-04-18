@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { BankRateType } from '../data/bankRates'
 import type { LoanPortion } from '../utils/calculations'
+import type { MonthlyBudgetItem } from '../types/monthlyBudget'
 
 export type DownPaymentMode = 'amount' | 'percentage'
 
@@ -16,6 +17,7 @@ export interface MortgageState {
   selectedRateType: BankRateType
   downPaymentMode: DownPaymentMode
   loanPortions: LoanPortion[]
+  monthlyBudgetItems: MonthlyBudgetItem[]
 }
 
 export interface MortgageStateActions {
@@ -30,6 +32,7 @@ export interface MortgageStateActions {
   setSelectedRateType: (value: BankRateType) => void
   setDownPaymentMode: (value: DownPaymentMode) => void
   setLoanPortions: (value: LoanPortion[]) => void
+  setMonthlyBudgetItems: (value: MonthlyBudgetItem[]) => void
   reset: () => void
 }
 
@@ -38,7 +41,7 @@ const DEFAULT_DOWN_PAYMENT = 400000
 const DEFAULT_MONTHLY_INCOME = 0
 const DEFAULT_MONTHLY_AMORTIZATION = 0
 const DEFAULT_MONTHLY_OPERATING_COST = 0
-const DEFAULT_LOAN_TERM = 20
+const DEFAULT_LOAN_TERM = 50
 const DEFAULT_BANK_ID = 'sbab'
 const DEFAULT_RATE_TYPE: BankRateType = 'average'
 
@@ -100,6 +103,28 @@ function parseLoanPortionsParam(value: string | null, fallbackBankId: string): L
   }
 }
 
+function parseMonthlyBudgetItemsParam(value: string | null): MonthlyBudgetItem[] {
+  if (!value) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(value)
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+
+    return parsed.map((item, index) => ({
+      id:
+        typeof item.id === 'string' && item.id.length > 0 ? item.id : `budget-${index}`,
+      name: typeof item.name === 'string' ? item.name : '',
+      amountSeK: Math.max(0, Number.isFinite(Number(item.amountSeK)) ? Number(item.amountSeK) : 0),
+    }))
+  } catch {
+    return []
+  }
+}
+
 function getInitialStateFromQuery(): MortgageState {
   const params = new URLSearchParams(window.location.search)
   const monthlyIncomeFromQuery = parseNumberParam(params.get('monthlyIncome'), DEFAULT_MONTHLY_INCOME)
@@ -129,6 +154,7 @@ function getInitialStateFromQuery(): MortgageState {
     selectedRateType: parseRateTypeParam(params.get('rateType')),
     downPaymentMode: parseDownPaymentModeParam(params.get('downPaymentMode')),
     loanPortions: parseLoanPortionsParam(params.get('loanPortions'), selectedBank),
+    monthlyBudgetItems: parseMonthlyBudgetItemsParam(params.get('monthlyBudgetItems')),
   }
 }
 
@@ -148,6 +174,9 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
   const [selectedRateType, setSelectedRateType] = useState<BankRateType>(initialState.selectedRateType)
   const [downPaymentMode, setDownPaymentMode] = useState<DownPaymentMode>(initialState.downPaymentMode)
   const [loanPortions, setLoanPortions] = useState<LoanPortion[]>(initialState.loanPortions)
+  const [monthlyBudgetItems, setMonthlyBudgetItems] = useState<MonthlyBudgetItem[]>(
+    initialState.monthlyBudgetItems
+  )
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -170,6 +199,12 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       params.delete('loanPortions')
     }
 
+    if (monthlyBudgetItems.length > 0) {
+      params.set('monthlyBudgetItems', JSON.stringify(monthlyBudgetItems))
+    } else {
+      params.delete('monthlyBudgetItems')
+    }
+
     const newUrl = `${window.location.pathname}?${params.toString()}`
     window.history.replaceState({}, '', newUrl)
   }, [
@@ -184,6 +219,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     selectedRateType,
     downPaymentMode,
     loanPortions,
+    monthlyBudgetItems,
   ])
 
   const reset = useCallback(() => {
@@ -198,6 +234,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     setSelectedRateType(DEFAULT_RATE_TYPE)
     setDownPaymentMode('amount')
     setLoanPortions([])
+    setMonthlyBudgetItems([])
   }, [])
 
   return {
@@ -213,6 +250,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       selectedRateType,
       downPaymentMode,
       loanPortions,
+      monthlyBudgetItems,
     },
     actions: {
       setHousePrice,
@@ -226,6 +264,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       setSelectedRateType,
       setDownPaymentMode,
       setLoanPortions,
+      setMonthlyBudgetItems,
       reset,
     },
   }

@@ -146,10 +146,13 @@ export function useScenarioComparison({
 
   const hasPortions = loanPortions.length > 0
 
-  const selectedPreset =
-    BANK_RATE_PRESETS.find((preset) => preset.id === selectedBank) ?? BANK_RATE_PRESETS[0]
-  const bankRatesByTerm = getRatesByType(selectedPreset, selectedRateType)
-  const effectiveBankRatesByTerm = getEffectiveRatesByType(selectedPreset, selectedRateType)
+  const selectedPreset = BANK_RATE_PRESETS.find((preset) => preset.id === selectedBank)
+  const bankRatesByTerm = selectedPreset
+    ? getRatesByType(selectedPreset, selectedRateType)
+    : ({} as Record<number, number>)
+  const effectiveBankRatesByTerm = selectedPreset
+    ? getEffectiveRatesByType(selectedPreset, selectedRateType)
+    : ({} as Record<number, number>)
   const rateTypeLabel = selectedRateType === 'list' ? 'Listränta' : 'Snittränta'
 
   const getBaseRateForPortion = (portion: LoanPortion): number => {
@@ -392,7 +395,7 @@ export function useScenarioComparison({
 
   return {
     hasPortions,
-    selectedPresetLabel: selectedPreset.label,
+    selectedPresetLabel: selectedPreset?.label ?? 'Egen ränta',
     rateTypeLabel,
     sortedPortions,
     hasThreeMonthPortion,
