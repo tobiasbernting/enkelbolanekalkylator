@@ -8,14 +8,19 @@ import {
   Divider,
 } from '@chakra-ui/react'
 import { formatCurrency } from '../utils/calculations'
+import { PortionDetail } from '../utils/calculations'
 
 interface SummaryCardProps {
   monthlyPayment: number
+  interestMonthlyPayment: number
+  requiredMonthlyAmortization: number
+  requiredAmortizationRate: number
   loanAmount: number
   totalInterest: number
   totalCost: number
-  interestRate: number
   loanTerm: number
+  amountToFinanceSeK?: number
+  portionDetails?: PortionDetail[]
 }
 
 function StatItem({ label, value, highlight = false }: any) {
@@ -37,12 +42,17 @@ function StatItem({ label, value, highlight = false }: any) {
 
 export function SummaryCard({
   monthlyPayment,
+  interestMonthlyPayment,
+  requiredMonthlyAmortization,
+  requiredAmortizationRate,
   loanAmount,
   totalInterest,
   totalCost,
-  interestRate,
   loanTerm,
+  amountToFinanceSeK,
+  portionDetails,
 }: SummaryCardProps) {
+  const hasMultiplePortions = !!portionDetails && portionDetails.length > 1
   return (
     <Box bg="white" p={8} borderRadius="lg" boxShadow="md">
       <VStack spacing={6} align="stretch">
@@ -61,7 +71,13 @@ export function SummaryCard({
         {/* Grid of Stats */}
         <Grid templateColumns="repeat(2, 1fr)" gap={6}>
           <GridItem>
-            <StatItem label="Lånebelopp" value={formatCurrency(loanAmount)} />
+            <StatItem 
+              label={amountToFinanceSeK !== undefined ? "Belopp att finansiera" : "Lånebelopp"} 
+              value={formatCurrency(amountToFinanceSeK ?? loanAmount)} 
+            />
+          </GridItem>
+          <GridItem>
+            <StatItem label="Totalt lånebelopp" value={formatCurrency(loanAmount)} />
           </GridItem>
           <GridItem>
             <StatItem label="Skuldränta" value={formatCurrency(totalInterest)} />
@@ -70,10 +86,13 @@ export function SummaryCard({
             <StatItem label="Totalt kostnad" value={formatCurrency(totalCost)} />
           </GridItem>
           <GridItem>
-            <StatItem
-              label="Ränta"
-              value={`${interestRate.toFixed(2)}% / ${loanTerm} år`}
-            />
+            <StatItem label="Ränta/mån" value={formatCurrency(interestMonthlyPayment)} />
+          </GridItem>
+          <GridItem>
+            <StatItem label="Amortering/mån" value={formatCurrency(requiredMonthlyAmortization)} />
+          </GridItem>
+          <GridItem colSpan={2}>
+            <StatItem label="Amorteringskrav" value={`${(requiredAmortizationRate * 100).toFixed(1)}% per år`} />
           </GridItem>
         </Grid>
 
@@ -85,10 +104,9 @@ export function SummaryCard({
           <Text>
             Du bestämmer att låna{' '}
             <Text as="strong">{formatCurrency(loanAmount)}</Text> för att köpa
-            ditt hus. Med en ränta på <Text as="strong">{interestRate.toFixed(2)}%</Text> och en
-            lånetid på <Text as="strong">{loanTerm} år</Text>, kommer du att
+            ditt hus. {hasMultiplePortions ? 'Med olika räntor och lånetider för varje portion' : `Med en lånetid på ${loanTerm} år`} kommer du att
             betala <Text as="strong">{formatCurrency(monthlyPayment)}</Text> i
-            månaden. Det totala beloppet du betalar kommer att bli{' '}
+            månaden inklusive amortering. Det totala beloppet du betalar kommer att bli{' '}
             <Text as="strong">{formatCurrency(totalCost)}</Text>, varav{' '}
             <Text as="strong">{formatCurrency(totalInterest)}</Text> är ränta.
           </Text>

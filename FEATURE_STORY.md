@@ -11,6 +11,7 @@ Build an interactive mortgage calculator that allows users to quickly compare di
 **As a** mortgage calculator user  
 **I want to** enter the house purchase price and down payment so that **I can** see my monthly payment amount
 
+
 #### Acceptance Criteria
 - [ ] User can input total house price (in Swedish Kronor/SEK)
 - [ ] User can input down payment amount (SEK or percentage of house price)
@@ -19,14 +20,15 @@ Build an interactive mortgage calculator that allows users to quickly compare di
 - [ ] Monthly payment updates in real-time as inputs change
 - [ ] Monthly payment is displayed prominently with clear formatting
 
+
 #### Technical Requirements
 - Loan amount = House price - Down payment
 - Default loan term: 20 years (can be configurable)
-- Default interest rate: 6% annual (can be configurable)
 - Formula: Monthly Payment = P × [r(1+r)^n] / [(1+r)^n - 1]
-  - P = Loan amount
-  - r = Monthly interest rate (annual rate ÷ 12)
-  - n = Total number of payments (years × 12)
+   - P = Loan amount
+   - r = Monthly interest rate (annual rate ÷ 12)
+   - n = Total number of payments (years × 12)
+   - Interest rate is now set per loan portion, not in Lånevillkor
 
 #### Example
 - House price: 2,000,000 SEK
@@ -75,46 +77,83 @@ Build an interactive mortgage calculator that allows users to quickly compare di
 
 ---
 
-### Story 3: Amortization Schedule (Amotering)
+### Story 4: Multiple Loan Portions with Different Terms
 **As a** mortgage calculator user  
-**I want to** see the amortization schedule so that **I can** understand how my payments are split between principal and interest
+**I want to** split my loan into multiple portions with different terms (3 months, 1 year, 2 years, 5 years, 10 years) so that **I can** see the combined monthly payment and details for each portion
 
 #### Acceptance Criteria
-- [ ] User can view an amortization schedule for the current scenario
-- [ ] Schedule shows data for each payment period (month/year)
-- [ ] For each period, display:
-  - Payment number
-  - Monthly payment amount
-  - Principal portion
-  - Interest portion
-  - Remaining balance
-- [ ] Schedule is presented as a table with rows for each period
-- [ ] User can toggle between monthly and yearly view
-- [ ] Schedule can be exported/printed (nice to have)
-- [ ] Schedule updates when any input parameters change
+- [x] User can add multiple loan portions with different loan amounts and terms
+- [x] Predefined term options: 3 months, 1 year, 2 years, 5 years, 10 years
+- [x] Each loan portion can have its own interest rate (different from global rate)
+- [x] Down payment is calculated once from house price, then remaining amount is split into portions
+- [x] System calculates monthly payment for each portion separately using its own interest rate
+- [x] Total monthly payment is the sum of all portion payments
+- [x] Display shows total aggregated payment prominently
+- [x] Details table shows each loan portion with its amount, interest rate, term, and monthly payment
+- [x] User can add/remove loan portions dynamically
+- [x] Amortization schedule shows combined schedule for all portions
+- [x] Scenario comparison works with total loan amount across all portions
 
 #### Technical Requirements
-- Default view: Yearly summary (showing only year-end balances)
-- Alternative view: Monthly details (all 240 payments for 20-year loan)
-- For yearly view: Sum all monthly payments and interest within each year
-- Calculation for each period n:
-  - Interest = Remaining balance × (monthly interest rate)
-  - Principal = Monthly payment - Interest
-  - New remaining balance = Previous balance - Principal
+- Each loan portion: { amount: number, termYears: number, termMonths?: number }
+- For 3 months: termYears = 0.25 (or handle as months)
+- Aggregate monthly payment = sum of all portion payments
+- Amortization schedule combines all portions chronologically
+- Update calculations to handle multiple loans
 
-#### Example Table (Yearly View)
-```
-Year | Payment # | Annual Payment | Annual Interest | Annual Principal | Remaining Balance
------|-----------|----------------|-----------------|------------------|------------------
-1    | 1-12      | 138,600 SEK    | 97,500 SEK      | 41,100 SEK       | 1,558,900 SEK
-2    | 13-24     | 138,600 SEK    | 94,500 SEK      | 44,100 SEK       | 1,514,800 SEK
-...  | ...       | ...            | ...             | ...              | ...
-20   | 229-240   | 138,600 SEK    | 6,900 SEK       | 131,700 SEK      | 0 SEK
-```
+#### Example
+- Total loan: 1,600,000 SEK
+- Portion 1: 400,000 SEK for 3 months
+- Portion 2: 600,000 SEK for 2 years  
+- Portion 3: 600,000 SEK for 10 years
+- **Total monthly payment: ~XX,XXX SEK** (sum of all portions)
 
 ---
 
 ## UI/UX Specifications
+
+### Layout (Updated)
+1. **Input Panel** (Left or Top)
+   - House price input
+   - Down payment input (with toggle: amount or percentage)
+   - Interest rate slider/input
+   - Loan term selector (with preset options)
+   - **NEW: Multiple Loans Section**
+     - Add loan portion button
+     - List of loan portions with amount and term
+     - Remove portion buttons
+   - Clear/Reset button
+
+2. **Summary Card** (Prominent)
+   - Current monthly payment (large, bold) - **NOW TOTAL across all portions**
+   - Amount to finance (house price - down payment)
+   - Total loan amount (sum of all portions)
+   - Loan terms (list of different terms used)
+   - Interest rates (list of different rates used)
+   - Total cost of the house (down payment + all payments)
+
+3. **Loan Portions Details**
+   - Table showing each portion: Amount, Interest Rate, Term, Monthly Payment
+   - Total row with aggregated values
+
+4. **Scenario Comparison Section**
+   - Interactive table/matrix
+   - Highlighting for current scenario
+   - Sortable columns (nice to have)
+
+5. **Amortization Schedule Section**
+   - Toggle: Monthly / Yearly view
+   - Scrollable table
+   - Year-by-year breakdown visible by default
+   - Expandable rows for monthly details (nice to have)
+   - **UPDATED: Combined schedule for all loan portions**
+
+### Responsive Design
+- Mobile: Stack all sections vertically
+- Tablet: Side-by-side layout with scrollable tables
+- Desktop: Multi-column balanced layout
+
+### Color/Visual Feedback
 
 ### Layout
 1. **Input Panel** (Left or Top)
@@ -163,22 +202,47 @@ Year | Payment # | Annual Payment | Annual Interest | Annual Principal | Remaini
   housePriceSeK: number;          // Total house price
   downPaymentSeK: number;         // Down payment in SEK
   interestRatePercent: number;    // Annual interest rate
-  loanTermYears: number;          // Loan duration
+  loanTermYears: number;          // Default loan duration (for single loan)
   minRateScenario: number;        // Min interest for scenarios
   maxRateScenario: number;        // Max interest for scenarios
   downPaymentPercentages: number[]; // Array of down payment percentages
+  loanPortions: LoanPortion[];    // NEW: Multiple loan portions
+}
+```
+
+### LoanPortion
+```typescript
+{
+  id: string;                     // Unique identifier
+  amountSeK: number;              // Loan amount for this portion
+  termYears: number;              // Term in years (can be fractional for months)
+  interestRate: number;           // Interest rate for this portion (%)
 }
 ```
 
 ### Calculated State
 ```typescript
 {
-  loanAmountSeK: number;
+  amountToFinanceSeK: number;     // House price - down payment
+  loanAmountSeK: number;          // Total of all portion amounts
+  monthlyPaymentSeK: number;      // Total monthly payment (sum of all portions)
+  totalInterestSeK: number;       // Total interest across all portions
+  totalCostSeK: number;           // Total cost of house
+  scenarios: ScenarioResult[];    // Scenario comparisons
+  amortizationSchedule: AmortizationRow[]; // Combined schedule
+  portionDetails: PortionDetail[]; // NEW: Details for each portion
+}
+```
+
+### PortionDetail
+```typescript
+{
+  id: string;
+  amountSeK: number;
+  termYears: number;
+  interestRate: number;           // Interest rate for this portion
   monthlyPaymentSeK: number;
   totalInterestSeK: number;
-  totalCostSeK: number;
-  scenarios: ScenarioResult[];
-  amortizationSchedule: AmortizationRow[];
 }
 ```
 
@@ -232,7 +296,8 @@ Year | Payment # | Annual Payment | Annual Interest | Annual Principal | Remaini
 - ✅ Story 2: Multi-scenario comparison table
 - Enhanced amortization with monthly details
 
-### Phase 3 (Nice to Have)
+### Phase 3
+- ✅ Story 4: Multiple loan portions with different terms
 - Export/print functionality
 - Input validation with error messages
 - Preset loan term options

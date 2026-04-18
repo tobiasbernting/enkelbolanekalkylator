@@ -1,61 +1,119 @@
+import { useMemo, useState } from 'react'
 import {
   Box,
-  Text,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  VStack,
+  Grid,
+  GridItem,
   Heading,
-  useColorModeValue,
+  HStack,
+  NumberInput,
+  NumberInputField,
+  Slider,
+  SliderFilledTrack,
+  SliderThumb,
+  SliderTrack,
+  Table,
+  Td,
+  Text,
+  Th,
+  Thead,
+  Tr,
+  Tbody,
+  VStack,
 } from '@chakra-ui/react'
-import { ScenarioResult, formatCurrency } from '../utils/calculations'
+import { formatCurrency, LoanPortion } from '../utils/calculations'
+import { BANK_RATE_PRESETS, BankRateType, getRatesByType } from '../data/bankRates'
 
 interface ScenarioComparisonProps {
-  scenarios: ScenarioResult[]
-  currentDownPaymentPercent: number
-  currentInterestRate: number
+  loanPortions: LoanPortion[]
+  monthlyAmortizationSeK: number
+  selectedBank: string
+  selectedRateType: BankRateType
 }
 
 export function ScenarioComparison({
-  scenarios,
-  currentDownPaymentPercent,
-  currentInterestRate,
+  loanPortions,
+  monthlyAmortizationSeK,
+  selectedBank,
+  selectedRateType,
 }: ScenarioComparisonProps) {
-  const bgHover = useColorModeValue('gray.50', 'gray.700')
-  const bgCurrent = useColorModeValue('blue.100', 'blue.900')
+  const [rateShiftPercentPoints, setRateShiftPercentPoints] = useState(0)
 
-  if (scenarios.length === 0) {
+  if (loanPortions.length === 0) {
     return (
       <Box bg="white" p={6} borderRadius="lg" boxShadow="md">
-        <Text color="gray.500">Ingen scenarier att visa</Text>
+        <Heading as="h2" size="lg" mb={3}>
+          Scenarioanalys
+        </Heading>
+        <Text color="gray.500">Lägg till låneportioner för att simulera ränteförändring.</Text>
       </Box>
     )
   }
 
-  // Group scenarios by down payment and interest rate
-  const defaultDownPayments = [10, 15, 20, 25, 30]
-  const downPaymentGroup = scenarios.reduce(
-    (acc, scenario) => {
-      if (!acc[scenario.downPaymentPercent]) {
-        acc[scenario.downPaymentPercent] = {}
-      }
-      acc[scenario.downPaymentPercent][scenario.interestRate] = scenario
-      return acc
-    },
-    {} as Record<number, Record<number, ScenarioResult>>
+  const monthlyInterestForShift = (shiftPercentPoints: number): number => {
+    return loanPortions.reduce((sum, portion) => {
+      const shiftedRate = Math.max(0, portion.interestRate + shiftPercentPoints)
+      return sum + (portion.amountSeK * shiftedRate) / 100 / 12
+    }, 0)
+  }
+
+  const clampShift = (value: number): number => Math.min(10, Math.max(-10, value))
+
+  const selectedPreset =
+    BANK_RATE_PRESETS.find((preset) => preset.id === selectedBank) ?? BANK_RATE_PRESETS[0]
+  const bankRatesByTerm = getRatesByType(selectedPreset, selectedRateType)
+  const rateTypeLabel = selectedRateType === 'list' ? 'Listränta' : 'Snittränta'
+
+  const totalLoanAmountSeK = useMemo(
+    () => loanPortions.reduce((sum, portion) => sum + portion.amountSeK, 0),
+    [loanPortions]
   )
 
-  // Get unique interest rates sorted
-  const interestRates = Array.from(
-    new Set(scenarios.map((s) => s.interestRate))
-  ).sort((a, b) => a - b)
+  const weightedAverageRate = useMemo(() => {
+    if (totalLoanAmountSeK <= 0) {
+      return 0
+    }
 
-  const downPayments = defaultDownPayments.filter(
-    (dp) => downPaymentGroup[dp]
+    const weightedSum = loanPortions.reduce(
+      (sum, portion) => sum + portion.interestRate * portion.amountSeK,
+      0
+    )
+    return weightedSum / totalLoanAmountSeK
+  }, [loanPortions, totalLoanAmountSeK])
+
+  const minRate = useMemo(
+    () => Math.min(...loanPortions.map((portion) => portion.interestRate)),
+    [loanPortions]
   )
+
+  const maxRate = useMemo(
+    () => Math.max(...loanPortions.map((portion) => portion.interestRate)),
+    [loanPortions]
+  )
+
+  const baseMonthlyInterest = useMemo(() => monthlyInterestForShift(0), [loanPortions])
+  const adjustedMonthlyInterest = useMemo(
+    () => monthlyInterestForShift(rateShiftPercentPoints),
+    [loanPortions, rateShiftPercentPoints]
+  )
+
+  const baseMonthlyTotal = baseMonthlyInterest + monthlyAmortizationSeK
+  const adjustedMonthlyTotal = adjustedMonthlyInterest + monthlyAmortizationSeK
+
+  const deltaLabel = `${rateShiftPercentPoints > 0 ? '+' : ''}${rateShiftPercentPoints.toFixed(2)} %-enheter`
+
+  const sortedPortions = useMemo(
+    () => [...loanPortions].sort((a, b) => a.termYears - b.termYears),
+    [loanPortions]
+  )
+
+  const formatTerm = (termYears: number): string => {
+    if (termYears === 0.25) return '3 mån'
+    return `${termYears} år`
+  }
+
+  const formatPortionHeader = (index: number): string => {
+    return `Lån ${index + 1}`
+  }
 
   return (
     <Box bg="white" p={6} borderRadius="lg" boxShadow="md">
@@ -65,108 +123,156 @@ export function ScenarioComparison({
         </Heading>
 
         <Text fontSize="sm" color="gray.600">
-          Jämför månatliga betalningar för olika räntesatser och handpenningsbelopp.
-          Din nuvarande scen är markerad i blått.
+          Simulera hur din månadskostnad påverkas om räntan för alla låneportioner går upp eller ner med samma nivå.
         </Text>
 
-        {/* Monthly Payment Matrix */}
+        <Box bg="gray.50" borderRadius="md" p={3}>
+          <Text fontSize="sm" fontWeight="semibold" mb={1}>
+            Nuvarande ränteläge
+          </Text>
+          <Text fontSize="sm" color="gray.700">
+            Viktad snittränta: {weightedAverageRate.toFixed(2)}% (spann {minRate.toFixed(2)}% - {maxRate.toFixed(2)}%)
+          </Text>
+          <Text fontSize="sm" color="gray.700">
+            Totalt lånebelopp: {formatCurrency(totalLoanAmountSeK)}
+          </Text>
+        </Box>
+
         <Box>
-          <Text fontSize="md" fontWeight="bold" mb={3}>
-            Månatlig betalning (SEK)
+          <Text fontSize="sm" fontWeight="semibold" mb={2}>
+            Justera ränteförändring (%-enheter)
+          </Text>
+          <Grid templateColumns={{ base: '1fr', md: '1fr 120px' }} gap={4} alignItems="center">
+            <GridItem>
+              <Slider
+                min={-10}
+                max={10}
+                step={0.01}
+                value={rateShiftPercentPoints}
+                onChange={(value) => setRateShiftPercentPoints(value)}
+                colorScheme="orange"
+              >
+                <SliderTrack>
+                  <SliderFilledTrack />
+                </SliderTrack>
+                <SliderThumb />
+              </Slider>
+            </GridItem>
+            <GridItem>
+              <NumberInput
+                min={-10}
+                max={10}
+                step={0.01}
+                value={rateShiftPercentPoints}
+                onChange={(valueString) => {
+                  const nextValue = Number(valueString)
+                  if (Number.isFinite(nextValue)) {
+                    setRateShiftPercentPoints(clampShift(nextValue))
+                  }
+                }}
+              >
+                <NumberInputField />
+              </NumberInput>
+            </GridItem>
+          </Grid>
+        </Box>
+
+        <Box overflowX="auto">
+          <Table size="sm" variant="simple">
+            <Thead bg="gray.50">
+              <Tr>
+                <Th>Scenario</Th>
+                {sortedPortions.map((portion, index) => (
+                  <Th key={portion.id} isNumeric>
+                    <Text>{formatPortionHeader(index)}</Text>
+                    <Text fontWeight="normal">({formatTerm(portion.termYears)})</Text>
+                  </Th>
+                ))}
+                <Th isNumeric>Månadsränta</Th>
+                <Th isNumeric>Månadskostnad inkl amortering</Th>
+                <Th isNumeric>Skillnad mot nu</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              <Tr bg="orange.50">
+                <Td fontWeight="bold">Nuvarande</Td>
+                {sortedPortions.map((portion) => (
+                  <Td key={`base-${portion.id}`} isNumeric>{portion.interestRate.toFixed(2)}%</Td>
+                ))}
+                <Td isNumeric fontWeight="bold">{formatCurrency(baseMonthlyInterest)}</Td>
+                <Td isNumeric fontWeight="bold">{formatCurrency(baseMonthlyTotal)}</Td>
+                <Td isNumeric>0 SEK</Td>
+              </Tr>
+              <Tr>
+                <Td>Justerat ({deltaLabel})</Td>
+                {sortedPortions.map((portion) => {
+                  const adjustedRate = Math.max(0, portion.interestRate + rateShiftPercentPoints)
+                  return (
+                    <Td key={`adjusted-${portion.id}`} isNumeric>{adjustedRate.toFixed(2)}%</Td>
+                  )
+                })}
+                <Td isNumeric>{formatCurrency(adjustedMonthlyInterest)}</Td>
+                <Td isNumeric>{formatCurrency(adjustedMonthlyTotal)}</Td>
+                <Td
+                  isNumeric
+                  color={
+                    adjustedMonthlyTotal > baseMonthlyTotal
+                      ? 'orange.600'
+                      : adjustedMonthlyTotal < baseMonthlyTotal
+                        ? 'green.600'
+                        : 'gray.600'
+                  }
+                >
+                  {formatCurrency(adjustedMonthlyTotal - baseMonthlyTotal)}
+                </Td>
+              </Tr>
+            </Tbody>
+          </Table>
+        </Box>
+
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" mb={2}>
+            Ränta per lån (följer förändringen)
           </Text>
           <Box overflowX="auto">
-            <Table size="sm" variant="striped" colorScheme="gray">
-              <Thead bg="blue.50">
+            <Table size="sm" variant="simple">
+              <Thead bg="gray.50">
                 <Tr>
-                  <Th>Handpenning</Th>
-                  {interestRates.map((rate) => (
-                    <Th key={rate} isNumeric>
-                      {rate.toFixed(2)}% ränta
-                    </Th>
-                  ))}
+                  <Th>Löptid</Th>
+                  <Th isNumeric>{selectedPreset.label} ({rateTypeLabel})</Th>
+                  <Th isNumeric>Bank justerad</Th>
+                  <Th isNumeric>Din ränta</Th>
+                  <Th isNumeric>Din justerad</Th>
                 </Tr>
               </Thead>
               <Tbody>
-                {downPayments.map((dp) => (
-                  <Tr key={dp}>
-                    <Td fontWeight="medium">{dp}%</Td>
-                    {interestRates.map((rate) => {
-                      const scenario = downPaymentGroup[dp][rate]
-                      const isCurrent =
-                        dp === currentDownPaymentPercent &&
-                        Math.abs(rate - currentInterestRate) < 0.01
-                      return (
-                        <Td
-                          key={`${dp}-${rate}`}
-                          isNumeric
-                          bg={isCurrent ? bgCurrent : undefined}
-                          fontWeight={isCurrent ? 'bold' : undefined}
-                          _hover={{ bg: bgHover }}
-                        >
-                          {formatCurrency(scenario.monthlyPaymentSeK)}
-                        </Td>
-                      )
-                    })}
-                  </Tr>
-                ))}
+                {sortedPortions.map((portion) => {
+                  const baseBankRate = bankRatesByTerm[portion.termYears]
+                  const adjustedBankRate =
+                    baseBankRate !== undefined
+                      ? Math.max(0, baseBankRate + rateShiftPercentPoints)
+                      : null
+                  const adjustedUserRate = Math.max(0, portion.interestRate + rateShiftPercentPoints)
+
+                  return (
+                    <Tr key={portion.id}>
+                      <Td>{formatTerm(portion.termYears)}</Td>
+                      <Td isNumeric>{baseBankRate !== undefined ? `${baseBankRate.toFixed(2)}%` : '-'}</Td>
+                      <Td isNumeric>{adjustedBankRate !== null ? `${adjustedBankRate.toFixed(2)}%` : '-'}</Td>
+                      <Td isNumeric>{portion.interestRate.toFixed(2)}%</Td>
+                      <Td isNumeric>{adjustedUserRate.toFixed(2)}%</Td>
+                    </Tr>
+                  )
+                })}
               </Tbody>
             </Table>
           </Box>
         </Box>
 
-        {/* Total Cost Matrix */}
-        <Box>
-          <Text fontSize="md" fontWeight="bold" mb={3}>
-            Totalt kostnad inklusive ränta (SEK)
-          </Text>
-          <Box overflowX="auto">
-            <Table size="sm" variant="striped" colorScheme="gray">
-              <Thead bg="blue.50">
-                <Tr>
-                  <Th>Handpenning</Th>
-                  {interestRates.map((rate) => (
-                    <Th key={rate} isNumeric>
-                      {rate.toFixed(2)}% ränta
-                    </Th>
-                  ))}
-                </Tr>
-              </Thead>
-              <Tbody>
-                {downPayments.map((dp) => (
-                  <Tr key={dp}>
-                    <Td fontWeight="medium">{dp}%</Td>
-                    {interestRates.map((rate) => {
-                      const scenario = downPaymentGroup[dp][rate]
-                      const isCurrent =
-                        dp === currentDownPaymentPercent &&
-                        Math.abs(rate - currentInterestRate) < 0.01
-                      return (
-                        <Td
-                          key={`${dp}-${rate}`}
-                          isNumeric
-                          bg={isCurrent ? bgCurrent : undefined}
-                          fontWeight={isCurrent ? 'bold' : undefined}
-                          _hover={{ bg: bgHover }}
-                        >
-                          {formatCurrency(scenario.totalCostSeK)}
-                        </Td>
-                      )
-                    })}
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </Box>
-        </Box>
-
-        {/* Legend */}
-        <Box bg="blue.50" p={3} borderRadius="md" fontSize="sm" color="gray.700">
-          <Text>
-            💡 Det blå fältet visar ditt nuvarande scenario. Genom att jämföra
-            olika räntor och handpenningsbelopp kan du se hur dessa påverkar din
-            totala kostnad.
-          </Text>
-        </Box>
+        <HStack justify="space-between" fontSize="sm" color="gray.600" flexWrap="wrap">
+          <Text>Aktiv förändring: {deltaLabel}</Text>
+          <Text>Amortering i simulering: {formatCurrency(monthlyAmortizationSeK)}/mån</Text>
+        </HStack>
       </VStack>
     </Box>
   )
