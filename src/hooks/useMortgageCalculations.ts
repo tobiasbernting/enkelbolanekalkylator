@@ -22,7 +22,6 @@ interface UseMortgageCalculationsParams {
   monthlyAmortization: number
   monthlyOperatingCost: number
   monthlyBudgetItems: MonthlyBudgetItem[]
-  loanTerm: number
   selectedBank: string
   selectedRateType: BankRateType
   loanPortions: LoanPortion[]
@@ -65,7 +64,6 @@ export function useMortgageCalculations({
   monthlyAmortization,
   monthlyOperatingCost,
   monthlyBudgetItems,
-  loanTerm: _loanTerm,
   selectedBank,
   selectedRateType,
   loanPortions,

@@ -15,7 +15,6 @@ import {
   VStack,
 } from '@chakra-ui/react'
 import { formatCurrency } from '../utils/calculations'
-import { PortionDetail } from '../utils/calculations'
 
 interface SummaryCardProps {
   monthlyPayment: number
@@ -35,9 +34,7 @@ interface SummaryCardProps {
   downPaymentSeK: number
   totalInterest: number
   totalCost: number
-  loanTerm: number
   amountToFinanceSeK?: number
-  portionDetails?: PortionDetail[]
 }
 
 interface StatItemProps {
@@ -88,11 +85,9 @@ export function SummaryCard({
   amortizationExplanation,
   loanAmount,
   downPaymentSeK,
-  totalInterest: _totalInterest,
-  totalCost: _totalCost,
-  loanTerm: _loanTerm,
+  totalInterest,
+  totalCost,
   amountToFinanceSeK,
-  portionDetails: _portionDetails,
 }: SummaryCardProps) {
   return (
     <Box bg="white" p={8} borderRadius="lg" boxShadow="md">
@@ -157,12 +152,12 @@ export function SummaryCard({
                   <GridItem>
                     <StatItem
                       label={'Räntekostnad'}
-                      value={formatCurrency(_totalInterest)}
+                      value={formatCurrency(totalInterest)}
                       labelMaxWidth="18ch"
                     />
                   </GridItem>
                   <GridItem>
-                    <StatItem label="Totalt kostnad" value={formatCurrency(_totalCost)} />
+                    <StatItem label="Totalt kostnad" value={formatCurrency(totalCost)} />
                   </GridItem>
                   <GridItem>
                     <StatItem label="Ränta/mån" value={formatCurrency(interestMonthlyPayment)} />

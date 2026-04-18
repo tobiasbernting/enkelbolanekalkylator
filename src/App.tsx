@@ -27,7 +27,6 @@ function App() {
     monthlyAmortization: state.monthlyAmortization,
     monthlyOperatingCost: state.monthlyOperatingCost,
     monthlyBudgetItems: state.monthlyBudgetItems,
-    loanTerm: state.loanTerm,
     selectedBank: state.selectedBank,
     selectedRateType: state.selectedRateType,
     loanPortions: state.loanPortions,
@@ -110,9 +109,7 @@ function App() {
               downPaymentSeK={state.downPayment}
               totalInterest={calculations.loanCalculation.totalInterestSeK}
               totalCost={calculations.loanCalculation.totalCostSeK}
-              loanTerm={state.loanTerm}
               amountToFinanceSeK={calculations.loanCalculation.amountToFinanceSeK}
-              portionDetails={calculations.loanCalculation.portionDetails}
             />
           </GridItem>
         </Grid>
