@@ -59,20 +59,38 @@ export function LoanPortionsPanel({
   defaultInterestRate, 
   amountToFinance 
 }: LoanPortionsPanelProps) {
-  const selectedPreset = BANK_RATE_PRESETS.find((preset) => preset.id === selectedBank) ?? BANK_RATE_PRESETS[0];
+  const selectedPreset = BANK_RATE_PRESETS.find((preset) => preset.id === selectedBank);
   const totalAmount = portions.reduce((sum, p) => sum + p.amountSeK, 0);
 
-  const normalizeBankId = (bankId: string | undefined): string => {
+  const nominalToEffectiveAnnualRate = (nominalRatePercent: number): number => {
+    const nominal = nominalRatePercent / 100;
+    const effective = Math.pow(1 + nominal / 12, 12) - 1;
+    return effective * 100;
+  };
+
+  const normalizeBankId = (bankId: string | undefined): string | undefined => {
     if (bankId && BANK_RATE_PRESETS.some((preset) => preset.id === bankId)) {
       return bankId;
     }
 
-    return selectedBank;
+    if (selectedBank && BANK_RATE_PRESETS.some((preset) => preset.id === selectedBank)) {
+      return selectedBank;
+    }
+
+    return undefined;
   };
 
   const getRatesForBank = (bankId: string | undefined, rateType: BankRateType) => {
     const normalizedBankId = normalizeBankId(bankId);
-    const preset = BANK_RATE_PRESETS.find((item) => item.id === normalizedBankId) ?? selectedPreset;
+    if (!normalizedBankId) {
+      return {} as Record<number, number>;
+    }
+
+    const preset = BANK_RATE_PRESETS.find((item) => item.id === normalizedBankId);
+    if (!preset) {
+      return {} as Record<number, number>;
+    }
+
     return getRatesByType(preset, rateType);
   };
 
@@ -91,7 +109,16 @@ export function LoanPortionsPanel({
 
   const getEffectiveRateForBankTerm = (bankId: string, termYears: number): number => {
     const normalizedBankId = normalizeBankId(bankId);
-    const preset = BANK_RATE_PRESETS.find((item) => item.id === normalizedBankId) ?? selectedPreset;
+    if (!normalizedBankId) {
+      const portion = portions.find((item) => item.bankId === bankId && item.termYears === termYears);
+      return nominalToEffectiveAnnualRate(portion?.interestRate ?? defaultInterestRate);
+    }
+
+    const preset = BANK_RATE_PRESETS.find((item) => item.id === normalizedBankId);
+    if (!preset) {
+      return nominalToEffectiveAnnualRate(defaultInterestRate);
+    }
+
     const effectiveRatesByTerm = getEffectiveRatesByType(preset, selectedRateType);
     const nominalRatesByTerm = getRatesByType(preset, selectedRateType);
     return effectiveRatesByTerm[termYears] ?? nominalRatesByTerm[termYears] ?? defaultInterestRate;
@@ -226,6 +253,7 @@ export function LoanPortionsPanel({
               size="md"
               bg="white"
             >
+              <option value="">Ingen bank (egen ränta)</option>
               {BANK_RATE_PRESETS.map((preset) => (
                 <option key={preset.id} value={preset.id}>
                   {preset.label}
@@ -250,11 +278,15 @@ export function LoanPortionsPanel({
         <Box bg="whiteAlpha.700" borderWidth={1} borderColor="gray.200" p={3} borderRadius="md">
           <HStack justify="space-between" flexWrap="wrap" gap={2}>
             <Text fontSize="sm" color="gray.600">
-              Välj en bank och räntetyp. Alla låneportioner följer samma bank för jämförelse mellan banker.
+              {selectedPreset
+                ? 'Välj en bank och räntetyp. Alla låneportioner följer samma bank för jämförelse mellan banker.'
+                : 'Ingen bank vald: räntor sätts manuellt per låneportion.'}
             </Text>
-            <Text fontSize="xs" color="gray.500" fontWeight="medium">
-              {selectedPreset?.label} uppdaterad {selectedPreset?.updatedAt}
-            </Text>
+            {selectedPreset && (
+              <Text fontSize="xs" color="gray.500" fontWeight="medium">
+                {selectedPreset.label} uppdaterad {selectedPreset.updatedAt}
+              </Text>
+            )}
           </HStack>
         </Box>
 
@@ -353,7 +385,7 @@ export function LoanPortionsPanel({
 
         {portions.length === 0 && (
           <Text color="gray.500" textAlign="center" py={4}>
-            Inga låneportioner tillagda än. Klicka på "Lägg till låneportion" för att börja.
+            Inga låneportioner tillagda än. Minst en låneportion krävs för att beräkna kostnader.
           </Text>
         )}
       </VStack>

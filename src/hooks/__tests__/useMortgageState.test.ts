@@ -9,11 +9,19 @@ describe('useMortgageState', () => {
       downPayment: '500000',
       monthlyIncome: '100000',
       monthlyAmortization: '7000',
+      monthlyOperatingCost: '2500',
       amortizationMode: 'manual',
       loanTerm: '10',
       bankId: 'swedbank',
       rateType: 'list',
       downPaymentMode: 'percentage',
+      monthlyBudgetItems: JSON.stringify([
+        {
+          id: 'budget-a',
+          name: 'El',
+          amountSeK: 800,
+        },
+      ]),
       loanPortions: JSON.stringify([
         {
           id: 'portion-a',
@@ -33,6 +41,12 @@ describe('useMortgageState', () => {
     expect(result.current.state.downPayment).toBe(500000)
     expect(result.current.state.monthlyIncome).toBe(100000)
     expect(result.current.state.monthlyAmortization).toBe(7000)
+    expect(result.current.state.monthlyOperatingCost).toBe(2500)
+    expect(result.current.state.monthlyBudgetItems).toHaveLength(1)
+    expect(result.current.state.monthlyBudgetItems[0]).toMatchObject({
+      name: 'El',
+      amountSeK: 800,
+    })
     expect(result.current.state.isMonthlyAmortizationUserSet).toBe(true)
     expect(result.current.state.loanTerm).toBe(10)
     expect(result.current.state.selectedBank).toBe('swedbank')
@@ -51,6 +65,11 @@ describe('useMortgageState', () => {
       result.current.actions.setDownPayment(600000)
       result.current.actions.setMonthlyIncome(90000)
       result.current.actions.setMonthlyAmortization(5500)
+      result.current.actions.setMonthlyOperatingCost(3200)
+      result.current.actions.setMonthlyBudgetItems([
+        { id: 'b1', name: 'Internet', amountSeK: 500 },
+        { id: 'b2', name: 'Forsakring', amountSeK: 900 },
+      ])
       result.current.actions.setIsMonthlyAmortizationUserSet(true)
       result.current.actions.setSelectedBank('nordea')
       result.current.actions.setSelectedRateType('list')
@@ -64,6 +83,10 @@ describe('useMortgageState', () => {
       expect(searchParams.get('rateType')).toBe('list')
       expect(searchParams.get('downPaymentMode')).toBe('percentage')
       expect(searchParams.get('amortizationMode')).toBe('manual')
+      expect(searchParams.get('monthlyOperatingCost')).toBe('3200')
+      expect(searchParams.get('monthlyBudgetItems')).toBe(
+        '[{"id":"b1","name":"Internet","amountSeK":500},{"id":"b2","name":"Forsakring","amountSeK":900}]'
+      )
     })
 
     act(() => {
@@ -75,6 +98,8 @@ describe('useMortgageState', () => {
       expect(result.current.state.downPayment).toBe(400000)
       expect(result.current.state.monthlyIncome).toBe(0)
       expect(result.current.state.monthlyAmortization).toBe(0)
+      expect(result.current.state.monthlyOperatingCost).toBe(0)
+      expect(result.current.state.monthlyBudgetItems).toHaveLength(0)
       expect(result.current.state.selectedBank).toBe('sbab')
       expect(result.current.state.selectedRateType).toBe('average')
       expect(result.current.state.downPaymentMode).toBe('amount')

@@ -26,6 +26,7 @@ function App() {
     monthlyIncome: state.monthlyIncome,
     monthlyAmortization: state.monthlyAmortization,
     monthlyOperatingCost: state.monthlyOperatingCost,
+    monthlyBudgetItems: state.monthlyBudgetItems,
     loanTerm: state.loanTerm,
     selectedBank: state.selectedBank,
     selectedRateType: state.selectedRateType,
@@ -73,6 +74,7 @@ function App() {
               selectedRateType={state.selectedRateType}
               downPaymentMode={state.downPaymentMode}
               loanPortions={state.loanPortions}
+              monthlyBudgetItems={state.monthlyBudgetItems}
               onHousePriceChange={actions.setHousePrice}
               onDownPaymentChange={actions.setDownPayment}
               onMonthlyIncomeChange={actions.setMonthlyIncome}
@@ -83,6 +85,7 @@ function App() {
               onSelectedRateTypeChange={actions.setSelectedRateType}
               onDownPaymentModeChange={actions.setDownPaymentMode}
               onLoanPortionsChange={actions.setLoanPortions}
+              onMonthlyBudgetItemsChange={actions.setMonthlyBudgetItems}
               onReset={actions.reset}
             />
           </GridItem>
@@ -91,6 +94,8 @@ function App() {
           <GridItem>
             <SummaryCard
               monthlyPayment={calculations.totalMonthlyCost}
+              mortgageMonthlyCost={calculations.mortgageMonthlyCostSeK}
+              budgetMonthlyCost={calculations.monthlyBudgetCostSeK}
               interestMonthlyPayment={calculations.loanCalculation.monthlyPaymentSeK}
               effectiveInterestMonthlyPayment={calculations.selectedEffectiveMonthlyInterestSeK}
               effectiveMonthlyPayment={calculations.selectedEffectiveMonthlyCostSeK}
