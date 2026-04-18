@@ -182,14 +182,18 @@ export function InputPanel({
         </Grid>
 
         <Grid templateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={4} alignItems="start">
-          <FormControl>
-            <FormLabel mb={2} lineHeight="short" whiteSpace="normal">Amortering/mån (SEK)</FormLabel>
-            <Input
-              value={viewModel.monthlyAmortizationFieldValue}
-              onChange={(e) => viewModel.onMonthlyAmortizationInputChange(e.target.value)}
-              inputMode="numeric"
-            />
-            <HStack spacing={2} mt={2} align="center">
+          <FormControl position="relative">
+            <FormLabel mb={2} lineHeight="short" whiteSpace="normal" pr={{ base: 0, md: '156px' }}>
+              Amortering/mån (SEK)
+            </FormLabel>
+            <HStack
+              spacing={2}
+              align="center"
+              position={{ base: 'static', md: 'absolute' }}
+              top="0"
+              right="0"
+              mb={{ base: 2, md: 0 }}
+            >
               <Text fontSize="sm" fontWeight={isMonthlyAmortizationAuto ? 'semibold' : 'medium'} color={isMonthlyAmortizationAuto ? 'gray.900' : 'gray.600'}>
                 Auto
               </Text>
@@ -203,6 +207,11 @@ export function InputPanel({
                 Manuell
               </Text>
             </HStack>
+            <Input
+              value={viewModel.monthlyAmortizationFieldValue}
+              onChange={(e) => viewModel.onMonthlyAmortizationInputChange(e.target.value)}
+              inputMode="numeric"
+            />
           </FormControl>
 
           <FormControl>

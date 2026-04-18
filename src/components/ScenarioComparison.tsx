@@ -26,6 +26,8 @@ import { useScenarioComparison } from '../hooks/useScenarioComparison'
 interface ScenarioComparisonProps {
   loanPortions: LoanPortion[]
   monthlyAmortizationSeK: number
+  monthlyOperatingCostSeK: number
+  monthlyBudgetCostSeK: number
   selectedBank: string
   selectedRateType: BankRateType
 }
@@ -33,12 +35,16 @@ interface ScenarioComparisonProps {
 export function ScenarioComparison({
   loanPortions,
   monthlyAmortizationSeK,
+  monthlyOperatingCostSeK,
+  monthlyBudgetCostSeK,
   selectedBank,
   selectedRateType,
 }: ScenarioComparisonProps) {
   const viewModel = useScenarioComparison({
     loanPortions,
     monthlyAmortizationSeK,
+    monthlyOperatingCostSeK,
+    monthlyBudgetCostSeK,
     selectedBank,
     selectedRateType,
   })
@@ -129,7 +135,8 @@ export function ScenarioComparison({
                 <Th isNumeric>Nominell kostnad/mån</Th>
                 <Th isNumeric>Effektiv ränta/mån</Th>
                 <Th isNumeric>Effektiv kostnad/mån</Th>
-                <Th isNumeric>Skillnad mot nu (effektiv)</Th>
+                <Th isNumeric>Total månadskostnad/mån</Th>
+                <Th isNumeric>Skillnad mot nu (total)</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -147,6 +154,7 @@ export function ScenarioComparison({
                 <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyTotal)}</Td>
                 <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyEffectiveInterest)}</Td>
                 <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyEffectiveTotal)}</Td>
+                <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyTotalWithBudget)}</Td>
                 <Td isNumeric>0 SEK</Td>
               </Tr>
               <Tr>
@@ -167,18 +175,19 @@ export function ScenarioComparison({
                 <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyTotal)}</Td>
                 <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyEffectiveInterest)}</Td>
                 <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyEffectiveTotal)}</Td>
+                <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyTotalWithBudget)}</Td>
                 <Td
                   isNumeric
                   color={
-                    viewModel.adjustedMonthlyEffectiveTotal > viewModel.baseMonthlyEffectiveTotal
+                    viewModel.adjustedMonthlyTotalWithBudget > viewModel.baseMonthlyTotalWithBudget
                       ? 'orange.600'
-                      : viewModel.adjustedMonthlyEffectiveTotal < viewModel.baseMonthlyEffectiveTotal
+                      : viewModel.adjustedMonthlyTotalWithBudget < viewModel.baseMonthlyTotalWithBudget
                         ? 'green.600'
                         : 'gray.600'
                   }
                 >
                   {formatCurrency(
-                    viewModel.adjustedMonthlyEffectiveTotal - viewModel.baseMonthlyEffectiveTotal
+                    viewModel.adjustedMonthlyTotalWithBudget - viewModel.baseMonthlyTotalWithBudget
                   )}
                 </Td>
               </Tr>

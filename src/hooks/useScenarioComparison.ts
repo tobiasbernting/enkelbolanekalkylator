@@ -10,6 +10,8 @@ import type { LoanPortion } from '../utils/calculations'
 interface UseScenarioComparisonParams {
   loanPortions: LoanPortion[]
   monthlyAmortizationSeK: number
+  monthlyOperatingCostSeK: number
+  monthlyBudgetCostSeK: number
   selectedBank: string
   selectedRateType: BankRateType
 }
@@ -37,7 +39,9 @@ export interface HistoricalPaymentScenario {
   monthlyDeltaSeK: number
   monthlyEffectiveInterestSeK: number
   monthlyEffectiveTotalSeK: number
+  monthlyEffectiveTotalWithBudgetSeK: number
   monthlyEffectiveDeltaSeK: number
+  monthlyEffectiveDeltaWithBudgetSeK: number
 }
 
 const HISTORICAL_POLICY_SCENARIOS: HistoricalPolicyScenario[] = [
@@ -116,10 +120,14 @@ export interface ScenarioComparisonViewModel {
   adjustedMonthlyInterest: number
   baseMonthlyTotal: number
   adjustedMonthlyTotal: number
+  baseMonthlyTotalWithBudget: number
+  adjustedMonthlyTotalWithBudget: number
   baseMonthlyEffectiveInterest: number
   adjustedMonthlyEffectiveInterest: number
   baseMonthlyEffectiveTotal: number
   adjustedMonthlyEffectiveTotal: number
+  baseMonthlyEffectiveTotalWithBudget: number
+  adjustedMonthlyEffectiveTotalWithBudget: number
   deltaLabel: string
   bankRatesByTerm: Record<number, number>
   effectiveBankRatesByTerm: Record<number, number>
@@ -139,6 +147,8 @@ export interface ScenarioComparisonViewModel {
 export function useScenarioComparison({
   loanPortions,
   monthlyAmortizationSeK,
+  monthlyOperatingCostSeK,
+  monthlyBudgetCostSeK,
   selectedBank,
   selectedRateType,
 }: UseScenarioComparisonParams): ScenarioComparisonViewModel {
@@ -327,8 +337,16 @@ export function useScenarioComparison({
 
   const baseMonthlyTotal = baseMonthlyInterest + monthlyAmortizationSeK
   const adjustedMonthlyTotal = adjustedMonthlyInterest + monthlyAmortizationSeK
+  const baseMonthlyTotalWithBudget =
+    baseMonthlyTotal + monthlyOperatingCostSeK + monthlyBudgetCostSeK
+  const adjustedMonthlyTotalWithBudget =
+    adjustedMonthlyTotal + monthlyOperatingCostSeK + monthlyBudgetCostSeK
   const baseMonthlyEffectiveTotal = baseMonthlyEffectiveInterest + monthlyAmortizationSeK
   const adjustedMonthlyEffectiveTotal = adjustedMonthlyEffectiveInterest + monthlyAmortizationSeK
+  const baseMonthlyEffectiveTotalWithBudget =
+    baseMonthlyEffectiveTotal + monthlyOperatingCostSeK + monthlyBudgetCostSeK
+  const adjustedMonthlyEffectiveTotalWithBudget =
+    adjustedMonthlyEffectiveTotal + monthlyOperatingCostSeK + monthlyBudgetCostSeK
 
   const historicalScenarios = useMemo(() => {
     if (!hasThreeMonthPortion || currentThreeMonthRate === null) {
@@ -359,6 +377,8 @@ export function useScenarioComparison({
       }, 0)
 
       const monthlyEffectiveTotalSeK = monthlyEffectiveInterestSeK + monthlyAmortizationSeK
+      const monthlyEffectiveTotalWithBudgetSeK =
+        monthlyEffectiveTotalSeK + monthlyOperatingCostSeK + monthlyBudgetCostSeK
 
       return {
         id: scenario.id,
@@ -372,7 +392,10 @@ export function useScenarioComparison({
         monthlyDeltaSeK: monthlyTotalSeK - baseMonthlyTotal,
         monthlyEffectiveInterestSeK,
         monthlyEffectiveTotalSeK,
+        monthlyEffectiveTotalWithBudgetSeK,
         monthlyEffectiveDeltaSeK: monthlyEffectiveTotalSeK - baseMonthlyEffectiveTotal,
+        monthlyEffectiveDeltaWithBudgetSeK:
+          monthlyEffectiveTotalWithBudgetSeK - baseMonthlyEffectiveTotalWithBudget,
       }
     })
   }, [
@@ -382,8 +405,11 @@ export function useScenarioComparison({
     bankRatesByTerm,
     effectiveBankRatesByTerm,
     monthlyAmortizationSeK,
+    monthlyOperatingCostSeK,
+    monthlyBudgetCostSeK,
     baseMonthlyTotal,
     baseMonthlyEffectiveTotal,
+    baseMonthlyEffectiveTotalWithBudget,
   ])
 
   const deltaLabel = `${rateShiftPercentPoints > 0 ? '+' : ''}${rateShiftPercentPoints.toFixed(2)} %-enheter`
@@ -411,10 +437,14 @@ export function useScenarioComparison({
     adjustedMonthlyInterest,
     baseMonthlyTotal,
     adjustedMonthlyTotal,
+    baseMonthlyTotalWithBudget,
+    adjustedMonthlyTotalWithBudget,
     baseMonthlyEffectiveInterest,
     adjustedMonthlyEffectiveInterest,
     baseMonthlyEffectiveTotal,
     adjustedMonthlyEffectiveTotal,
+    baseMonthlyEffectiveTotalWithBudget,
+    adjustedMonthlyEffectiveTotalWithBudget,
     deltaLabel,
     bankRatesByTerm,
     effectiveBankRatesByTerm,

@@ -26,6 +26,8 @@ describe('useScenarioComparison', () => {
       useScenarioComparison({
         loanPortions,
         monthlyAmortizationSeK: 5000,
+        monthlyOperatingCostSeK: 2500,
+        monthlyBudgetCostSeK: 1200,
         selectedBank: 'sbab',
         selectedRateType: 'average',
       })
@@ -73,6 +75,8 @@ describe('useScenarioComparison', () => {
       useScenarioComparison({
         loanPortions,
         monthlyAmortizationSeK: 5000,
+        monthlyOperatingCostSeK: 2500,
+        monthlyBudgetCostSeK: 1200,
         selectedBank: 'sbab',
         selectedRateType: 'average',
       })

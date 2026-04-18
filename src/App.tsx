@@ -134,6 +134,8 @@ function App() {
         <ScenarioComparison
           loanPortions={calculations.effectivePortions}
           monthlyAmortizationSeK={calculations.effectiveMonthlyAmortization}
+          monthlyOperatingCostSeK={state.monthlyOperatingCost}
+          monthlyBudgetCostSeK={calculations.monthlyBudgetCostSeK}
           selectedBank={state.selectedBank}
           selectedRateType={state.selectedRateType}
         />
