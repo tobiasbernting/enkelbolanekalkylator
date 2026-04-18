@@ -17,7 +17,12 @@ import {
   Heading,
 } from '@chakra-ui/react';
 import { LoanPortion } from '../utils/calculations';
-import { BANK_RATE_PRESETS, BankRateType, getRatesByType } from '../data/bankRates';
+import {
+  BANK_RATE_PRESETS,
+  BankRateType,
+  getEffectiveRatesByType,
+  getRatesByType,
+} from '../data/bankRates';
 
 interface LoanPortionsPanelProps {
   portions: LoanPortion[];
@@ -82,6 +87,14 @@ export function LoanPortionsPanel({
   const getDefaultRateForBankTerm = (bankId: string, termYears: number): number => {
     const ratesByTerm = getRatesForBank(bankId, selectedRateType);
     return ratesByTerm[termYears] ?? defaultInterestRate;
+  };
+
+  const getEffectiveRateForBankTerm = (bankId: string, termYears: number): number => {
+    const normalizedBankId = normalizeBankId(bankId);
+    const preset = BANK_RATE_PRESETS.find((item) => item.id === normalizedBankId) ?? selectedPreset;
+    const effectiveRatesByTerm = getEffectiveRatesByType(preset, selectedRateType);
+    const nominalRatesByTerm = getRatesByType(preset, selectedRateType);
+    return effectiveRatesByTerm[termYears] ?? nominalRatesByTerm[termYears] ?? defaultInterestRate;
   };
 
   const formatIntegerWithSpaces = (value: number): string => {
@@ -262,6 +275,7 @@ export function LoanPortionsPanel({
                 <Tr>
                   <Th minW="170px">Belopp (SEK)</Th>
                   <Th minW="140px">Ränta (%)</Th>
+                  <Th minW="160px">Effektiv ränta (%)</Th>
                   <Th minW="150px">Löptid</Th>
                   <Th minW="110px"></Th>
                 </Tr>
@@ -293,6 +307,11 @@ export function LoanPortionsPanel({
                         size="md"
                         step="0.1"
                       />
+                    </Td>
+                    <Td>
+                      <Text fontWeight="semibold" color="gray.700">
+                        {getEffectiveRateForBankTerm(portion.bankId, portion.termYears).toFixed(2)}%
+                      </Text>
                     </Td>
                     <Td>
                       <Select

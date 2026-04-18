@@ -23,6 +23,7 @@ interface InputPanelProps {
   downPayment: number;
   monthlyIncome: number;
   monthlyAmortization: number;
+  monthlyOperatingCost: number;
   minimumMonthlyAmortization: number;
   isMonthlyAmortizationAuto: boolean;
   selectedBank: string;
@@ -33,6 +34,7 @@ interface InputPanelProps {
   onDownPaymentChange: (value: number) => void;
   onMonthlyIncomeChange: (value: number) => void;
   onMonthlyAmortizationChange: (value: number) => void;
+  onMonthlyOperatingCostChange: (value: number) => void;
   onMonthlyAmortizationModeChange: (isAuto: boolean) => void;
   onSelectedBankChange: (bankId: string) => void;
   onSelectedRateTypeChange: (rateType: BankRateType) => void;
@@ -46,6 +48,7 @@ export function InputPanel({
   downPayment,
   monthlyIncome,
   monthlyAmortization,
+  monthlyOperatingCost,
   minimumMonthlyAmortization,
   isMonthlyAmortizationAuto,
   selectedBank,
@@ -56,6 +59,7 @@ export function InputPanel({
   onDownPaymentChange,
   onMonthlyIncomeChange,
   onMonthlyAmortizationChange,
+  onMonthlyOperatingCostChange,
   onMonthlyAmortizationModeChange,
   onSelectedBankChange,
   onSelectedRateTypeChange,
@@ -68,12 +72,14 @@ export function InputPanel({
     downPayment,
     monthlyIncome,
     monthlyAmortization,
+    monthlyOperatingCost,
     minimumMonthlyAmortization,
     isMonthlyAmortizationAuto,
     onHousePriceChange,
     onDownPaymentChange,
     onMonthlyIncomeChange,
     onMonthlyAmortizationChange,
+    onMonthlyOperatingCostChange,
     onMonthlyAmortizationModeChange,
     onDownPaymentModeChange,
   })
@@ -188,6 +194,15 @@ export function InputPanel({
                 Manuell
               </Text>
             </HStack>
+          </FormControl>
+
+          <FormControl>
+            <FormLabel mb={2} lineHeight="short" whiteSpace="normal">Driftskostnad/mån (SEK)</FormLabel>
+            <Input
+              value={viewModel.monthlyOperatingCostFieldValue}
+              onChange={(e) => viewModel.onMonthlyOperatingCostInputChange(e.target.value)}
+              inputMode="numeric"
+            />
           </FormControl>
 
         </Grid>

@@ -1,5 +1,10 @@
 import { useMemo } from 'react'
-import { BANK_RATE_PRESETS, getRatesByType, type BankRateType } from '../data/bankRates'
+import {
+  BANK_RATE_PRESETS,
+  getEffectiveRatesByType,
+  getRatesByType,
+  type BankRateType,
+} from '../data/bankRates'
 import type { BankComparisonRow } from '../types/bankComparison'
 import {
   calculateMultipleLoans,
@@ -14,6 +19,7 @@ interface UseMortgageCalculationsParams {
   downPayment: number
   monthlyIncome: number
   monthlyAmortization: number
+  monthlyOperatingCost: number
   loanTerm: number
   selectedBank: string
   selectedRateType: BankRateType
@@ -39,6 +45,11 @@ interface UseMortgageCalculationsResult {
   requiredMonthlyAmortization: number
   effectiveMonthlyAmortization: number
   totalMonthlyCost: number
+  selectedNominalRatePercent: number
+  selectedEffectiveRatePercent: number
+  selectedEffectiveMonthlyInterestSeK: number
+  selectedEffectiveMonthlyCostSeK: number
+  selectedEffectiveYearlyCostSeK: number
   perBankSummary: BankComparisonRow[]
   amortizationSchedule: AmortizationRow[]
 }
@@ -48,6 +59,7 @@ export function useMortgageCalculations({
   downPayment,
   monthlyIncome,
   monthlyAmortization,
+  monthlyOperatingCost,
   loanTerm,
   selectedBank,
   selectedRateType,
@@ -138,8 +150,8 @@ export function useMortgageCalculations({
   )
 
   const totalMonthlyCost = useMemo(
-    () => loanCalculation.monthlyPaymentSeK + effectiveMonthlyAmortization,
-    [loanCalculation.monthlyPaymentSeK, effectiveMonthlyAmortization]
+    () => loanCalculation.monthlyPaymentSeK + effectiveMonthlyAmortization + monthlyOperatingCost,
+    [loanCalculation.monthlyPaymentSeK, effectiveMonthlyAmortization, monthlyOperatingCost]
   )
 
   const perBankSummary = useMemo(() => {
@@ -149,21 +161,34 @@ export function useMortgageCalculations({
 
     const comparisons = BANK_RATE_PRESETS.map((bank) => {
       const ratesByTerm = getRatesByType(bank, selectedRateType)
+      const effectiveRatesByTerm = getEffectiveRatesByType(bank, selectedRateType)
       const bankPortions = effectivePortions.map((portion) => ({
         ...portion,
         interestRate: ratesByTerm[portion.termYears] ?? portion.interestRate,
+      }))
+
+      const bankEffectivePortions = effectivePortions.map((portion) => ({
+        ...portion,
+        interestRate: effectiveRatesByTerm[portion.termYears] ?? ratesByTerm[portion.termYears] ?? portion.interestRate,
       }))
 
       const portionRates = bankPortions.map((portion) => ({
         id: portion.id,
         termYears: portion.termYears,
         ratePercent: portion.interestRate,
+        effectiveRatePercent:
+          effectiveRatesByTerm[portion.termYears] ?? portion.interestRate,
       }))
 
       const bankCalculation = calculateMultipleLoans(
         housePrice,
         downPayment,
         bankPortions
+      )
+      const bankEffectiveCalculation = calculateMultipleLoans(
+        housePrice,
+        downPayment,
+        bankEffectivePortions
       )
 
       const bankRequiredAmortizationRate = calculateRequiredAmortizationRate(
@@ -180,25 +205,40 @@ export function useMortgageCalculations({
       )
 
       const monthlyPaymentSeK =
-        bankCalculation.totalMonthlyPaymentSeK + bankMonthlyAmortizationSeK
-      const effectiveRatePercent =
+        bankCalculation.totalMonthlyPaymentSeK + bankMonthlyAmortizationSeK + monthlyOperatingCost
+      const monthlyEffectivePaymentSeK =
+        bankEffectiveCalculation.totalMonthlyPaymentSeK + bankMonthlyAmortizationSeK + monthlyOperatingCost
+
+      const nominalRatePercent =
         bankCalculation.totalLoanAmountSeK > 0
           ? (bankCalculation.totalMonthlyPaymentSeK * 12 * 100) /
             bankCalculation.totalLoanAmountSeK
           : 0
 
+      const effectiveRatePercent =
+        bankEffectiveCalculation.totalLoanAmountSeK > 0
+          ? (bankEffectiveCalculation.totalMonthlyPaymentSeK * 12 * 100) /
+            bankEffectiveCalculation.totalLoanAmountSeK
+          : nominalRatePercent
+
       return {
         bankId: bank.id,
         bankLabel: bank.label,
         loanAmountSeK: bankCalculation.totalLoanAmountSeK,
+        nominalRatePercent,
         effectiveRatePercent,
         portionRates,
         monthlyInterestSeK: bankCalculation.totalMonthlyPaymentSeK,
+        monthlyEffectiveInterestSeK: bankEffectiveCalculation.totalMonthlyPaymentSeK,
+        monthlyOperatingCostSeK: monthlyOperatingCost,
         monthlyAmortizationSeK: bankMonthlyAmortizationSeK,
         monthlyPaymentSeK,
+        monthlyEffectivePaymentSeK,
         requiredAmortizationRate: bankRequiredAmortizationRate,
         totalInterestSeK: bankCalculation.totalInterestSeK,
         totalCostSeK: bankCalculation.totalCostSeK,
+        totalEffectiveInterestSeK: bankEffectiveCalculation.totalInterestSeK,
+        totalEffectiveCostSeK: bankEffectiveCalculation.totalCostSeK,
       }
     })
 
@@ -210,6 +250,7 @@ export function useMortgageCalculations({
     downPayment,
     annualIncome,
     monthlyAmortization,
+    monthlyOperatingCost,
     requiredLoanAmountForRules,
   ])
 
@@ -225,6 +266,21 @@ export function useMortgageCalculations({
     [effectivePortions, housePrice, annualIncome, effectiveMonthlyAmortization]
   )
 
+  const selectedBankSummary = useMemo(
+    () => perBankSummary.find((row) => row.bankId === selectedBank),
+    [perBankSummary, selectedBank]
+  )
+
+  const selectedNominalRatePercent = selectedBankSummary?.nominalRatePercent ?? 0
+  const selectedEffectiveRatePercent =
+    selectedBankSummary?.effectiveRatePercent ?? selectedNominalRatePercent
+  const selectedEffectiveMonthlyInterestSeK =
+    selectedBankSummary?.monthlyEffectiveInterestSeK ?? loanCalculation.monthlyPaymentSeK
+  const selectedEffectiveMonthlyCostSeK =
+    selectedBankSummary?.monthlyEffectivePaymentSeK ??
+    (loanCalculation.monthlyPaymentSeK + effectiveMonthlyAmortization + monthlyOperatingCost)
+  const selectedEffectiveYearlyCostSeK = selectedEffectiveMonthlyCostSeK * 12
+
   return {
     annualIncome,
     effectivePortions,
@@ -235,6 +291,11 @@ export function useMortgageCalculations({
     requiredMonthlyAmortization,
     effectiveMonthlyAmortization,
     totalMonthlyCost,
+    selectedNominalRatePercent,
+    selectedEffectiveRatePercent,
+    selectedEffectiveMonthlyInterestSeK,
+    selectedEffectiveMonthlyCostSeK,
+    selectedEffectiveYearlyCostSeK,
     perBankSummary,
     amortizationSchedule,
   }

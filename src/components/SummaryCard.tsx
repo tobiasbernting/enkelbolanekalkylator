@@ -16,6 +16,12 @@ import { useSummaryCardView } from '../hooks/useSummaryCardView'
 interface SummaryCardProps {
   monthlyPayment: number
   interestMonthlyPayment: number
+  effectiveInterestMonthlyPayment: number
+  effectiveMonthlyPayment: number
+  nominalRatePercent: number
+  effectiveRatePercent: number
+  effectiveYearlyCost: number
+  monthlyOperatingCost: number
   requiredMonthlyAmortization: number
   requiredAmortizationRate: number
   amortizationExplanation?: string
@@ -63,6 +69,12 @@ function StatItem({ label, value, highlight = false, labelMaxWidth }: StatItemPr
 export function SummaryCard({
   monthlyPayment,
   interestMonthlyPayment,
+  effectiveInterestMonthlyPayment,
+  effectiveMonthlyPayment,
+  nominalRatePercent,
+  effectiveRatePercent,
+  effectiveYearlyCost,
+  monthlyOperatingCost,
   requiredMonthlyAmortization,
   requiredAmortizationRate,
   amortizationExplanation,
@@ -112,10 +124,31 @@ export function SummaryCard({
             <StatItem label="Totalt kostnad" value={formatCurrency(totalCost)} />
           </GridItem>
           <GridItem>
+            <StatItem label="Nominell ränta" value={`${nominalRatePercent.toFixed(2)}%`} />
+          </GridItem>
+          <GridItem>
+            <StatItem
+              label="Effektiv ränta"
+              value={`${effectiveRatePercent.toFixed(2)}% (${formatCurrency(effectiveMonthlyPayment)}/mån)`}
+            />
+          </GridItem>
+          <GridItem>
             <StatItem label="Ränta/mån" value={formatCurrency(interestMonthlyPayment)} />
           </GridItem>
           <GridItem>
+            <StatItem label="Effektiv räntekostnad/mån" value={formatCurrency(effectiveInterestMonthlyPayment)} />
+          </GridItem>
+          <GridItem>
             <StatItem label="Amortering/mån" value={formatCurrency(requiredMonthlyAmortization)} />
+          </GridItem>
+          <GridItem>
+            <StatItem label="Driftskostnad/mån" value={formatCurrency(monthlyOperatingCost)} />
+          </GridItem>
+          <GridItem>
+            <StatItem label="Effektiv kostnad/mån" value={formatCurrency(effectiveMonthlyPayment)} />
+          </GridItem>
+          <GridItem>
+            <StatItem label="Effektiv kostnad/år" value={formatCurrency(effectiveYearlyCost)} />
           </GridItem>
           <GridItem>
             <StatItem label="Handpenning" value={formatCurrency(downPaymentSeK)} />
@@ -174,7 +207,8 @@ export function SummaryCard({
             <Text as="strong">{formatCurrency(loanAmount)}</Text> för att köpa
             ditt hus. {viewModel.hasMultiplePortions ? 'Med olika räntor och lånetider för varje portion' : `Med en lånetid på ${loanTerm} år`} kommer du att
             betala <Text as="strong">{formatCurrency(monthlyPayment)}</Text> i
-            månaden inklusive amortering. Det totala beloppet du betalar kommer att bli{' '}
+            månaden inklusive amortering och driftskostnad. Effektiv månadsutgift (inkl avgiftspåslag i effektiv ränta) visas som{' '}
+            <Text as="strong">{formatCurrency(effectiveMonthlyPayment)}</Text>. Det totala beloppet du betalar kommer att bli{' '}
             <Text as="strong">{formatCurrency(totalCost)}</Text>, varav{' '}
             <Text as="strong">{formatCurrency(totalInterest)}</Text> är ränta.
           </Text>

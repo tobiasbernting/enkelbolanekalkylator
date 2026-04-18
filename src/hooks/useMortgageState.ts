@@ -9,6 +9,7 @@ export interface MortgageState {
   downPayment: number
   monthlyIncome: number
   monthlyAmortization: number
+  monthlyOperatingCost: number
   isMonthlyAmortizationUserSet: boolean
   loanTerm: number
   selectedBank: string
@@ -22,6 +23,7 @@ export interface MortgageStateActions {
   setDownPayment: (value: number) => void
   setMonthlyIncome: (value: number) => void
   setMonthlyAmortization: (value: number) => void
+  setMonthlyOperatingCost: (value: number) => void
   setIsMonthlyAmortizationUserSet: (value: boolean) => void
   setLoanTerm: (value: number) => void
   setSelectedBank: (value: string) => void
@@ -35,6 +37,7 @@ const DEFAULT_HOUSE_PRICE = 2000000
 const DEFAULT_DOWN_PAYMENT = 400000
 const DEFAULT_MONTHLY_INCOME = 0
 const DEFAULT_MONTHLY_AMORTIZATION = 0
+const DEFAULT_MONTHLY_OPERATING_COST = 0
 const DEFAULT_LOAN_TERM = 20
 const DEFAULT_BANK_ID = 'sbab'
 const DEFAULT_RATE_TYPE: BankRateType = 'average'
@@ -106,12 +109,17 @@ function getInitialStateFromQuery(): MortgageState {
     params.get('monthlyAmortization'),
     DEFAULT_MONTHLY_AMORTIZATION
   )
+  const monthlyOperatingCost = parseNumberParam(
+    params.get('monthlyOperatingCost'),
+    DEFAULT_MONTHLY_OPERATING_COST
+  )
 
   return {
     housePrice: parseNumberParam(params.get('housePrice'), DEFAULT_HOUSE_PRICE),
     downPayment: parseNumberParam(params.get('downPayment'), DEFAULT_DOWN_PAYMENT),
     monthlyIncome: monthlyIncomeFromQuery > 0 ? monthlyIncomeFromQuery : annualIncomeFromLegacyQuery / 12,
     monthlyAmortization,
+    monthlyOperatingCost,
     isMonthlyAmortizationUserSet: parseAmortizationModeParam(
       params.get('amortizationMode'),
       monthlyAmortization
@@ -131,6 +139,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
   const [downPayment, setDownPayment] = useState(initialState.downPayment)
   const [monthlyIncome, setMonthlyIncome] = useState(initialState.monthlyIncome)
   const [monthlyAmortization, setMonthlyAmortization] = useState(initialState.monthlyAmortization)
+  const [monthlyOperatingCost, setMonthlyOperatingCost] = useState(initialState.monthlyOperatingCost)
   const [isMonthlyAmortizationUserSet, setIsMonthlyAmortizationUserSet] = useState(
     initialState.isMonthlyAmortizationUserSet
   )
@@ -147,6 +156,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     params.set('downPayment', String(downPayment))
     params.set('monthlyIncome', String(monthlyIncome))
     params.set('monthlyAmortization', String(monthlyAmortization))
+    params.set('monthlyOperatingCost', String(monthlyOperatingCost))
     params.set('amortizationMode', isMonthlyAmortizationUserSet ? 'manual' : 'auto')
     params.delete('annualIncome')
     params.set('loanTerm', String(loanTerm))
@@ -167,6 +177,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     downPayment,
     monthlyIncome,
     monthlyAmortization,
+    monthlyOperatingCost,
     isMonthlyAmortizationUserSet,
     loanTerm,
     selectedBank,
@@ -180,6 +191,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     setDownPayment(DEFAULT_DOWN_PAYMENT)
     setMonthlyIncome(DEFAULT_MONTHLY_INCOME)
     setMonthlyAmortization(DEFAULT_MONTHLY_AMORTIZATION)
+    setMonthlyOperatingCost(DEFAULT_MONTHLY_OPERATING_COST)
     setIsMonthlyAmortizationUserSet(false)
     setLoanTerm(DEFAULT_LOAN_TERM)
     setSelectedBank(DEFAULT_BANK_ID)
@@ -194,6 +206,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       downPayment,
       monthlyIncome,
       monthlyAmortization,
+      monthlyOperatingCost,
       isMonthlyAmortizationUserSet,
       loanTerm,
       selectedBank,
@@ -206,6 +219,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       setDownPayment,
       setMonthlyIncome,
       setMonthlyAmortization,
+      setMonthlyOperatingCost,
       setIsMonthlyAmortizationUserSet,
       setLoanTerm,
       setSelectedBank,

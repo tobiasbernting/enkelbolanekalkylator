@@ -6,6 +6,8 @@ export interface BankRatePreset {
   updatedAt: string;
   listRatesByTerm: Record<number, number>;
   averageRatesByTerm: Record<number, number>;
+  effectiveListRatesByTerm?: Record<number, number>;
+  effectiveAverageRatesByTerm?: Record<number, number>;
 }
 
 export function getRatesByType(
@@ -13,6 +15,41 @@ export function getRatesByType(
   rateType: BankRateType
 ): Record<number, number> {
   return rateType === 'list' ? preset.listRatesByTerm : preset.averageRatesByTerm;
+}
+
+function nominalToEffectiveAnnualRate(nominalRatePercent: number): number {
+  const nominal = nominalRatePercent / 100;
+  const effective = Math.pow(1 + nominal / 12, 12) - 1;
+  return effective * 100;
+}
+
+function deriveEffectiveRatesFromNominal(
+  ratesByTerm: Record<number, number>
+): Record<number, number> {
+  return Object.fromEntries(
+    Object.entries(ratesByTerm).map(([term, rate]) => [Number(term), nominalToEffectiveAnnualRate(rate)])
+  );
+}
+
+export function getEffectiveRatesByType(
+  preset: BankRatePreset,
+  rateType: BankRateType
+): Record<number, number> {
+  if (rateType === 'list' && preset.effectiveListRatesByTerm) {
+    return preset.effectiveListRatesByTerm;
+  }
+
+  if (rateType === 'average' && preset.effectiveAverageRatesByTerm) {
+    return preset.effectiveAverageRatesByTerm;
+  }
+
+  // If explicit effective rates are missing, derive effective rates
+  // from the selected nominal rate set so list/average stay consistent.
+  if (rateType === 'list') {
+    return deriveEffectiveRatesFromNominal(preset.listRatesByTerm);
+  }
+
+  return deriveEffectiveRatesFromNominal(preset.averageRatesByTerm);
 }
 
 export const BANK_RATE_PRESETS: BankRatePreset[] = [
@@ -40,6 +77,16 @@ export const BANK_RATE_PRESETS: BankRatePreset[] = [
       7: 4.23,
       10: 4.44,
     },
+    effectiveListRatesByTerm: {
+      0.25: 3.25,
+      1: 3.68,
+      2: 3.91,
+      3: 4.06,
+      4: 4.17,
+      5: 4.27,
+      7: 4.47,
+      10: 4.69,
+    },
   },
   {
     id: 'handelsbanken',
@@ -62,6 +109,15 @@ export const BANK_RATE_PRESETS: BankRatePreset[] = [
       5: 3.47,
       8: 3.83,
       10: 3.93,
+    },
+    effectiveListRatesByTerm: {
+      0.25: 4.06,
+      1: 3.70,
+      2: 3.80,
+      3: 3.97,
+      5: 4.17,
+      8: 4.38,
+      10: 4.43,
     },
   },
   {

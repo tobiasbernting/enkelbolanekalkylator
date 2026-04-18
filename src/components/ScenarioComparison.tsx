@@ -62,7 +62,7 @@ export function ScenarioComparison({
         </Heading>
 
         <Text fontSize="sm" color="gray.600">
-          Simulera hur din månadskostnad påverkas om räntan för alla låneportioner går upp eller ner med samma nivå.
+          Simulera hur din månadskostnad påverkas om endast 3-månadersräntan ändras. Övriga räntor ligger kvar enligt vald bank.
         </Text>
 
         <Box bg="gray.50" borderRadius="md" p={3}>
@@ -70,7 +70,10 @@ export function ScenarioComparison({
             Nuvarande ränteläge
           </Text>
           <Text fontSize="sm" color="gray.700">
-            Viktad snittränta: {viewModel.weightedAverageRate.toFixed(2)}% (spann {viewModel.minRate.toFixed(2)}% - {viewModel.maxRate.toFixed(2)}%)
+            Viktad nominell snittränta: {viewModel.weightedAverageRate.toFixed(2)}% (spann {viewModel.minRate.toFixed(2)}% - {viewModel.maxRate.toFixed(2)}%)
+          </Text>
+          <Text fontSize="sm" color="gray.700">
+            Viktad effektiv snittränta: {viewModel.weightedAverageEffectiveRate.toFixed(2)}% ({formatCurrency(viewModel.baseMonthlyEffectiveTotal)}/mån, spann {viewModel.minEffectiveRate.toFixed(2)}% - {viewModel.maxEffectiveRate.toFixed(2)}%)
           </Text>
           <Text fontSize="sm" color="gray.700">
             Totalt lånebelopp: {formatCurrency(viewModel.totalLoanAmountSeK)}
@@ -122,42 +125,61 @@ export function ScenarioComparison({
                     <Text fontWeight="normal">({viewModel.formatTerm(portion.termYears)})</Text>
                   </Th>
                 ))}
-                <Th isNumeric>Månadsränta</Th>
-                <Th isNumeric>Månadskostnad inkl amortering</Th>
-                <Th isNumeric>Skillnad mot nu</Th>
+                <Th isNumeric>Nominell ränta/mån</Th>
+                <Th isNumeric>Nominell kostnad/mån</Th>
+                <Th isNumeric>Effektiv ränta/mån</Th>
+                <Th isNumeric>Effektiv kostnad/mån</Th>
+                <Th isNumeric>Skillnad mot nu (effektiv)</Th>
               </Tr>
             </Thead>
             <Tbody>
               <Tr bg="orange.50">
                 <Td fontWeight="bold">Nuvarande</Td>
                 {viewModel.sortedPortions.map((portion) => (
-                  <Td key={`base-${portion.id}`} isNumeric>{portion.interestRate.toFixed(2)}%</Td>
+                  <Td key={`base-${portion.id}`} isNumeric>
+                    <Text>{viewModel.getBaseRateForPortion(portion).toFixed(2)}%</Text>
+                    <Text fontSize="xs" color="gray.600">
+                      Eff: {viewModel.getBaseEffectiveRateForPortion(portion).toFixed(2)}%
+                    </Text>
+                  </Td>
                 ))}
                 <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyInterest)}</Td>
                 <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyTotal)}</Td>
+                <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyEffectiveInterest)}</Td>
+                <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyEffectiveTotal)}</Td>
                 <Td isNumeric>0 SEK</Td>
               </Tr>
               <Tr>
                 <Td>Justerat ({viewModel.deltaLabel})</Td>
                 {viewModel.sortedPortions.map((portion) => {
-                  const adjustedRate = Math.max(0, portion.interestRate + viewModel.rateShiftPercentPoints)
+                  const adjustedRate = viewModel.getAdjustedRateForPortion(portion)
+                  const adjustedEffectiveRate = viewModel.getAdjustedEffectiveRateForPortion(portion)
                   return (
-                    <Td key={`adjusted-${portion.id}`} isNumeric>{adjustedRate.toFixed(2)}%</Td>
+                    <Td key={`adjusted-${portion.id}`} isNumeric>
+                      <Text>{adjustedRate.toFixed(2)}%</Text>
+                      <Text fontSize="xs" color="gray.600">
+                        Eff: {adjustedEffectiveRate.toFixed(2)}%
+                      </Text>
+                    </Td>
                   )
                 })}
                 <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyInterest)}</Td>
                 <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyTotal)}</Td>
+                <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyEffectiveInterest)}</Td>
+                <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyEffectiveTotal)}</Td>
                 <Td
                   isNumeric
                   color={
-                    viewModel.adjustedMonthlyTotal > viewModel.baseMonthlyTotal
+                    viewModel.adjustedMonthlyEffectiveTotal > viewModel.baseMonthlyEffectiveTotal
                       ? 'orange.600'
-                      : viewModel.adjustedMonthlyTotal < viewModel.baseMonthlyTotal
+                      : viewModel.adjustedMonthlyEffectiveTotal < viewModel.baseMonthlyEffectiveTotal
                         ? 'green.600'
                         : 'gray.600'
                   }
                 >
-                  {formatCurrency(viewModel.adjustedMonthlyTotal - viewModel.baseMonthlyTotal)}
+                  {formatCurrency(
+                    viewModel.adjustedMonthlyEffectiveTotal - viewModel.baseMonthlyEffectiveTotal
+                  )}
                 </Td>
               </Tr>
             </Tbody>
@@ -173,28 +195,28 @@ export function ScenarioComparison({
               <Thead bg="gray.50">
                 <Tr>
                   <Th>Löptid</Th>
-                  <Th isNumeric>{viewModel.selectedPresetLabel} ({viewModel.rateTypeLabel})</Th>
-                  <Th isNumeric>Bank justerad</Th>
-                  <Th isNumeric>Din ränta</Th>
-                  <Th isNumeric>Din justerad</Th>
+                  <Th isNumeric>{viewModel.selectedPresetLabel} ({viewModel.rateTypeLabel}) nominell</Th>
+                  <Th isNumeric>{viewModel.selectedPresetLabel} ({viewModel.rateTypeLabel}) effektiv</Th>
+                  <Th isNumeric>Simulerad nominell</Th>
+                  <Th isNumeric>Simulerad effektiv</Th>
                 </Tr>
               </Thead>
               <Tbody>
                   {viewModel.sortedPortions.map((portion) => {
                     const baseBankRate = viewModel.bankRatesByTerm[portion.termYears]
-                  const adjustedBankRate =
-                    baseBankRate !== undefined
-                        ? Math.max(0, baseBankRate + viewModel.rateShiftPercentPoints)
-                      : null
-                    const adjustedUserRate = Math.max(0, portion.interestRate + viewModel.rateShiftPercentPoints)
+                    const baseEffectiveBankRate = viewModel.effectiveBankRatesByTerm[portion.termYears]
+                    const simulatedRate = viewModel.getAdjustedRateForPortion(portion)
+                    const simulatedEffectiveRate = viewModel.getAdjustedEffectiveRateForPortion(portion)
 
                   return (
                     <Tr key={portion.id}>
                         <Td>{viewModel.formatTerm(portion.termYears)}</Td>
                       <Td isNumeric>{baseBankRate !== undefined ? `${baseBankRate.toFixed(2)}%` : '-'}</Td>
-                      <Td isNumeric>{adjustedBankRate !== null ? `${adjustedBankRate.toFixed(2)}%` : '-'}</Td>
-                      <Td isNumeric>{portion.interestRate.toFixed(2)}%</Td>
-                      <Td isNumeric>{adjustedUserRate.toFixed(2)}%</Td>
+                      <Td isNumeric>
+                        {baseEffectiveBankRate !== undefined ? `${baseEffectiveBankRate.toFixed(2)}%` : '-'}
+                      </Td>
+                      <Td isNumeric>{`${simulatedRate.toFixed(2)}%`}</Td>
+                      <Td isNumeric>{`${simulatedEffectiveRate.toFixed(2)}%`}</Td>
                     </Tr>
                   )
                 })}
@@ -203,8 +225,67 @@ export function ScenarioComparison({
           </Box>
         </Box>
 
+        <Box>
+          <Text fontSize="sm" fontWeight="semibold" mb={2}>
+            Historiska scenarier kopplat till världshändelser
+          </Text>
+          {viewModel.historicalScenarios.length === 0 ? (
+            <Text fontSize="sm" color="gray.500">
+              Inget 3-månaderslån finns i upplägget, så historiska rörliga scenarier kan inte beräknas.
+            </Text>
+          ) : (
+            <Box overflowX="auto">
+              <Table size="sm" variant="simple">
+                <Thead bg="gray.50">
+                  <Tr>
+                    <Th>Scenario</Th>
+                    <Th>Världshändelse</Th>
+                    <Th isNumeric>Styrränta</Th>
+                    <Th isNumeric>Förändring mot nuvarande 3 mån</Th>
+                    <Th isNumeric>Nominell månadskostnad</Th>
+                    <Th isNumeric>Effektiv månadskostnad</Th>
+                    <Th isNumeric>Skillnad mot nu (effektiv)</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {viewModel.historicalScenarios.map((scenario) => (
+                    <Tr key={scenario.id}>
+                      <Td>
+                        <Text fontWeight="medium">{scenario.label}</Text>
+                        <Text fontSize="xs" color="gray.500">{scenario.period}</Text>
+                      </Td>
+                      <Td>{scenario.worldEvent}</Td>
+                      <Td isNumeric>{scenario.policyRate.toFixed(2)}%</Td>
+                      <Td isNumeric>
+                        {scenario.deltaPercentPoints > 0 ? '+' : ''}
+                        {scenario.deltaPercentPoints.toFixed(2)}
+                      </Td>
+                      <Td isNumeric fontWeight="semibold">{formatCurrency(scenario.monthlyTotalSeK)}</Td>
+                      <Td isNumeric fontWeight="semibold">{formatCurrency(scenario.monthlyEffectiveTotalSeK)}</Td>
+                      <Td
+                        isNumeric
+                        color={
+                          scenario.monthlyEffectiveDeltaSeK > 0
+                            ? 'orange.600'
+                            : scenario.monthlyEffectiveDeltaSeK < 0
+                              ? 'green.600'
+                              : 'gray.600'
+                        }
+                      >
+                        {formatCurrency(scenario.monthlyEffectiveDeltaSeK)}
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
+          )}
+        </Box>
+
         <HStack justify="space-between" fontSize="sm" color="gray.600" flexWrap="wrap">
-          <Text>Aktiv förändring: {viewModel.deltaLabel}</Text>
+          <Text>
+            Aktiv 3-mån förändring: {viewModel.hasThreeMonthPortion ? viewModel.deltaLabel : 'ingen 3-månadersdel'}
+          </Text>
           <Text>Amortering i simulering: {formatCurrency(monthlyAmortizationSeK)}/mån</Text>
         </HStack>
       </VStack>

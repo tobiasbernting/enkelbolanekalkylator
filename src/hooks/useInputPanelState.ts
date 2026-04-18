@@ -6,12 +6,14 @@ interface UseInputPanelStateParams {
   downPayment: number
   monthlyIncome: number
   monthlyAmortization: number
+  monthlyOperatingCost: number
   minimumMonthlyAmortization: number
   isMonthlyAmortizationAuto: boolean
   onHousePriceChange: (value: number) => void
   onDownPaymentChange: (value: number) => void
   onMonthlyIncomeChange: (value: number) => void
   onMonthlyAmortizationChange: (value: number) => void
+  onMonthlyOperatingCostChange: (value: number) => void
   onMonthlyAmortizationModeChange: (isAuto: boolean) => void
   onDownPaymentModeChange: (mode: DownPaymentMode) => void
 }
@@ -24,10 +26,12 @@ export interface InputPanelViewModel {
   monthlyIncomeFieldValue: string
   downPaymentFieldValue: string
   monthlyAmortizationFieldValue: string
+  monthlyOperatingCostFieldValue: string
   onHousePriceInputChange: (value: string) => void
   onDownPaymentInputChange: (value: string) => void
   onMonthlyIncomeInputChange: (value: string) => void
   onMonthlyAmortizationInputChange: (value: string) => void
+  onMonthlyOperatingCostInputChange: (value: string) => void
   onDownPaymentPercentChange: (valueString: string) => void
   onAmortizationModeSwitchChange: (checkedManual: boolean) => void
   onDownPaymentModeSwitchChange: (checkedPercentage: boolean) => void
@@ -55,12 +59,14 @@ export function useInputPanelState({
   downPayment,
   monthlyIncome,
   monthlyAmortization,
+  monthlyOperatingCost,
   minimumMonthlyAmortization,
   isMonthlyAmortizationAuto,
   onHousePriceChange,
   onDownPaymentChange,
   onMonthlyIncomeChange,
   onMonthlyAmortizationChange,
+  onMonthlyOperatingCostChange,
   onMonthlyAmortizationModeChange,
   onDownPaymentModeChange,
 }: UseInputPanelStateParams): InputPanelViewModel {
@@ -82,6 +88,7 @@ export function useInputPanelState({
     monthlyIncomeFieldValue: formatIntegerWithSpaces(monthlyIncome),
     downPaymentFieldValue: formatIntegerWithSpaces(downPayment),
     monthlyAmortizationFieldValue: formatIntegerWithSpaces(monthlyAmortization),
+    monthlyOperatingCostFieldValue: formatIntegerWithSpaces(monthlyOperatingCost),
     onHousePriceInputChange: (value) => onHousePriceChange(parseFormattedNumber(value)),
     onDownPaymentInputChange: (value) => onDownPaymentChange(parseFormattedNumber(value)),
     onMonthlyIncomeInputChange: (value) => onMonthlyIncomeChange(parseFormattedNumber(value)),
@@ -92,6 +99,8 @@ export function useInputPanelState({
       }
       onMonthlyAmortizationChange(parseFormattedNumber(value))
     },
+    onMonthlyOperatingCostInputChange: (value) =>
+      onMonthlyOperatingCostChange(parseFormattedNumber(value)),
     onDownPaymentPercentChange: (valueString) => {
       const value = parseFloat(valueString)
       onDownPaymentChange((housePrice * (Number.isFinite(value) ? value : 0)) / 100)

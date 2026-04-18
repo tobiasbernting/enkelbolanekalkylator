@@ -25,6 +25,7 @@ function App() {
     downPayment: state.downPayment,
     monthlyIncome: state.monthlyIncome,
     monthlyAmortization: state.monthlyAmortization,
+    monthlyOperatingCost: state.monthlyOperatingCost,
     loanTerm: state.loanTerm,
     selectedBank: state.selectedBank,
     selectedRateType: state.selectedRateType,
@@ -65,6 +66,7 @@ function App() {
               downPayment={state.downPayment}
               monthlyIncome={state.monthlyIncome}
               monthlyAmortization={state.monthlyAmortization}
+              monthlyOperatingCost={state.monthlyOperatingCost}
               minimumMonthlyAmortization={calculations.requiredMonthlyAmortization}
               isMonthlyAmortizationAuto={amortizationControl.isMonthlyAmortizationAuto}
               selectedBank={state.selectedBank}
@@ -75,6 +77,7 @@ function App() {
               onDownPaymentChange={actions.setDownPayment}
               onMonthlyIncomeChange={actions.setMonthlyIncome}
               onMonthlyAmortizationChange={amortizationControl.setManualMonthlyAmortization}
+              onMonthlyOperatingCostChange={actions.setMonthlyOperatingCost}
               onMonthlyAmortizationModeChange={amortizationControl.setAmortizationMode}
               onSelectedBankChange={actions.setSelectedBank}
               onSelectedRateTypeChange={actions.setSelectedRateType}
@@ -89,6 +92,12 @@ function App() {
             <SummaryCard
               monthlyPayment={calculations.totalMonthlyCost}
               interestMonthlyPayment={calculations.loanCalculation.monthlyPaymentSeK}
+              effectiveInterestMonthlyPayment={calculations.selectedEffectiveMonthlyInterestSeK}
+              effectiveMonthlyPayment={calculations.selectedEffectiveMonthlyCostSeK}
+              nominalRatePercent={calculations.selectedNominalRatePercent}
+              effectiveRatePercent={calculations.selectedEffectiveRatePercent}
+              effectiveYearlyCost={calculations.selectedEffectiveYearlyCostSeK}
+              monthlyOperatingCost={state.monthlyOperatingCost}
               requiredMonthlyAmortization={calculations.effectiveMonthlyAmortization}
               requiredAmortizationRate={calculations.requiredAmortizationRate}
               amortizationExplanation={calculations.amortizationExplanation}
