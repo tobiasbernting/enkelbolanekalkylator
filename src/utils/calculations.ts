@@ -79,7 +79,7 @@ export function calculateLoan(
   annualInterestRate: number,
   loanTermYears: number
 ): LoanCalculation {
-  const loanAmountSeK = housePriceSeK - downPaymentSeK;
+  const loanAmountSeK = Math.max(0, housePriceSeK - downPaymentSeK);
   const monthlyPaymentSeK = calculateMonthlyPayment(
     loanAmountSeK,
     annualInterestRate,
@@ -90,7 +90,7 @@ export function calculateLoan(
   const totalCostSeK = housePriceSeK + totalInterestSeK;
 
   return {
-    loanAmountSeK: Math.max(0, loanAmountSeK),
+    loanAmountSeK,
     monthlyPaymentSeK: Math.max(0, monthlyPaymentSeK),
     totalInterestSeK: Math.max(0, totalInterestSeK),
     totalCostSeK: Math.max(0, totalCostSeK),

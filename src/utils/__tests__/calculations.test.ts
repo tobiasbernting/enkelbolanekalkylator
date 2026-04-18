@@ -29,8 +29,8 @@ describe('calculations', () => {
 
     expect(overpaidLoan.loanAmountSeK).toBe(0)
     expect(overpaidLoan.monthlyPaymentSeK).toBe(0)
-    expect(overpaidLoan.totalInterestSeK).toBe(200000)
-    expect(overpaidLoan.totalCostSeK).toBe(1200000)
+    expect(overpaidLoan.totalInterestSeK).toBe(0)
+    expect(overpaidLoan.totalCostSeK).toBe(1000000)
   })
 
   it('calculates portion detail and aggregates multiple portions', () => {
