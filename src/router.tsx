@@ -108,7 +108,7 @@ function MortgageFlowLayout() {
     select: (state) => state.location,
   })
 
-  if (location.pathname === '/' && location.searchStr.length > 0) {
+  if (location.pathname === '/' && location.searchStr.length > 1) {
     return <Navigate href={`/resultat${location.searchStr}`} replace />
   }
 
