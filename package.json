@@ -11,7 +11,7 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy" : "gh-pages -d dist"
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@chakra-ui/color-mode": "^2.2.0",
@@ -19,10 +19,10 @@
     "@chakra-ui/system": "2.6.2",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@tanstack/react-router": "^1.168.23",
     "framer-motion": "^12.38.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.22.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

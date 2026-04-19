@@ -89,6 +89,8 @@ export function SummaryCard({
   totalCost,
   amountToFinanceSeK,
 }: SummaryCardProps) {
+  const displayedLoanAmount = amountToFinanceSeK ?? loanAmount
+
   return (
     <Box bg="white" p={8} borderRadius="lg" boxShadow="md">
       <VStack spacing={6} align="stretch">
@@ -144,7 +146,7 @@ export function SummaryCard({
                 <Divider />
                 <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)' }} columnGap={8} rowGap={6}>
                   <GridItem>
-                    <StatItem label="Totalt lånebelopp" value={formatCurrency(loanAmount)} />
+                    <StatItem label="Totalt lånebelopp" value={formatCurrency(displayedLoanAmount)} />
                   </GridItem>
                   <GridItem>
                     <StatItem label="Handpenning" value={formatCurrency(downPaymentSeK)} />
@@ -228,7 +230,7 @@ export function SummaryCard({
         <Box fontSize="sm" color="gray.600" bg="gray.50" p={3} borderRadius="md">
           <Text>
             Fokus ligger på din månadskostnad här och nu. Med ett lån på{' '}
-            <Text as="strong">{formatCurrency(loanAmount)}</Text> är din
+            <Text as="strong">{formatCurrency(displayedLoanAmount)}</Text> är din
             uppskattade månadskostnad{' '}
             <Text as="strong">{formatCurrency(monthlyPayment)}</Text>{' '}
             inklusive amortering och driftskostnad. Den effektiva

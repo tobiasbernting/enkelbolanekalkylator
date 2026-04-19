@@ -125,6 +125,52 @@ function parseMonthlyBudgetItemsParam(value: string | null): MonthlyBudgetItem[]
   }
 }
 
+function rebalanceLoanPortionsToFinancing(
+  portions: LoanPortion[],
+  targetAmountSeK: number
+): LoanPortion[] {
+  if (portions.length === 0) {
+    return portions
+  }
+
+  const target = Math.max(0, Math.round(targetAmountSeK))
+  const currentTotal = portions.reduce((sum, portion) => sum + Math.max(0, portion.amountSeK), 0)
+
+  if (currentTotal <= 0) {
+    if (portions.length === 1) {
+      const current = Math.max(0, portions[0].amountSeK)
+      return current === target ? portions : [{ ...portions[0], amountSeK: target }]
+    }
+
+    const equalBase = Math.floor(target / portions.length)
+    const remainder = target - equalBase * portions.length
+
+    return portions.map((portion, index) => ({
+      ...portion,
+      amountSeK: equalBase + (index === portions.length - 1 ? remainder : 0),
+    }))
+  }
+
+  const scaled = portions.map((portion) => ({
+    ...portion,
+    amountSeK: Math.max(0, Math.round((Math.max(0, portion.amountSeK) / currentTotal) * target)),
+  }))
+
+  const scaledTotal = scaled.reduce((sum, portion) => sum + portion.amountSeK, 0)
+  const diff = target - scaledTotal
+
+  if (diff !== 0) {
+    const lastIndex = scaled.length - 1
+    scaled[lastIndex] = {
+      ...scaled[lastIndex],
+      amountSeK: Math.max(0, scaled[lastIndex].amountSeK + diff),
+    }
+  }
+
+  const hasChanged = scaled.some((portion, index) => portion.amountSeK !== portions[index].amountSeK)
+  return hasChanged ? scaled : portions
+}
+
 function getInitialStateFromQuery(): MortgageState {
   const params = new URLSearchParams(window.location.search)
   const monthlyIncomeFromQuery = parseNumberParam(params.get('monthlyIncome'), DEFAULT_MONTHLY_INCOME)
@@ -177,6 +223,14 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
   const [monthlyBudgetItems, setMonthlyBudgetItems] = useState<MonthlyBudgetItem[]>(
     initialState.monthlyBudgetItems
   )
+
+  useEffect(() => {
+    const targetAmountSeK = housePrice - downPayment
+
+    setLoanPortions((previousPortions) =>
+      rebalanceLoanPortionsToFinancing(previousPortions, targetAmountSeK)
+    )
+  }, [housePrice, downPayment])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)

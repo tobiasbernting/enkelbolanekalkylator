@@ -105,4 +105,44 @@ describe('useMortgageState', () => {
       expect(result.current.state.downPaymentMode).toBe('amount')
     })
   })
+
+  it('rebalances loan portions when financing amount changes', async () => {
+    window.history.replaceState({}, '', '/')
+
+    const { result } = renderHook(() => useMortgageState())
+
+    act(() => {
+      result.current.actions.setLoanPortions([
+        {
+          id: 'portion-1',
+          bankId: 'sbab',
+          amountSeK: 1000000,
+          termYears: 3,
+          interestRate: 3.1,
+        },
+        {
+          id: 'portion-2',
+          bankId: 'sbab',
+          amountSeK: 600000,
+          termYears: 5,
+          interestRate: 3.2,
+        },
+      ])
+    })
+
+    act(() => {
+      result.current.actions.setDownPayment(500000)
+    })
+
+    await waitFor(() => {
+      const sum = result.current.state.loanPortions.reduce(
+        (total, portion) => total + portion.amountSeK,
+        0
+      )
+
+      expect(sum).toBe(1500000)
+      expect(result.current.state.loanPortions[0].amountSeK).toBe(937500)
+      expect(result.current.state.loanPortions[1].amountSeK).toBe(562500)
+    })
+  })
 })
