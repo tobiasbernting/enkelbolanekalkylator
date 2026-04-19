@@ -15,6 +15,7 @@ import {
   Th,
   Td,
   Heading,
+  useBreakpointValue,
 } from '@chakra-ui/react';
 import { LoanPortion } from '../utils/calculations';
 import {
@@ -59,6 +60,7 @@ export function LoanPortionsPanel({
   defaultInterestRate, 
   amountToFinance 
 }: LoanPortionsPanelProps) {
+  const isMobile = useBreakpointValue({ base: true, md: false }) ?? false;
   const selectedPreset = BANK_RATE_PRESETS.find((preset) => preset.id === selectedBank);
   const totalAmount = portions.reduce((sum, p) => sum + p.amountSeK, 0);
 
@@ -300,7 +302,7 @@ export function LoanPortionsPanel({
           Lägg till låneportion
         </Button>
 
-        {portions.length > 0 && (
+        {portions.length > 0 && !isMobile && (
           <Box maxH="360px" overflow="auto" borderWidth={1} borderColor="gray.200" borderRadius="lg" bg="white">
             <Table size="sm" variant="simple">
               <Thead bg="gray.50" position="sticky" top={0} zIndex={1}>
@@ -375,8 +377,77 @@ export function LoanPortionsPanel({
           </Box>
         )}
 
+        {portions.length > 0 && isMobile && (
+          <VStack spacing={3} align="stretch">
+            {portions.map((portion, index) => (
+              <Box key={portion.id} borderWidth={1} borderColor="gray.200" borderRadius="md" p={3} bg="white">
+                <Text fontSize="sm" fontWeight="bold" mb={2}>
+                  Låneportion {index + 1}
+                </Text>
+                <VStack spacing={2} align="stretch">
+                  <Box>
+                    <Text fontSize="xs" color="gray.600" mb={1}>Belopp (SEK)</Text>
+                    <Input
+                      value={formatIntegerWithSpaces(portion.amountSeK)}
+                      onChange={(e) =>
+                        updatePortionNumber(
+                          portion.id,
+                          'amountSeK',
+                          parseFormattedNumber(e.target.value)
+                        )
+                      }
+                      placeholder="0"
+                      size="sm"
+                      inputMode="numeric"
+                    />
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="gray.600" mb={1}>Ränta (%)</Text>
+                    <Input
+                      type="number"
+                      value={portion.interestRate || ''}
+                      onChange={(e) => updatePortionNumber(portion.id, 'interestRate', Number(e.target.value) || 0)}
+                      placeholder="6.0"
+                      size="sm"
+                      step="0.1"
+                    />
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="gray.600" mb={1}>Effektiv ränta</Text>
+                    <Text fontWeight="semibold" color="gray.700">
+                      {getEffectiveRateForBankTerm(portion.bankId, portion.termYears).toFixed(2)}%
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="gray.600" mb={1}>Löptid</Text>
+                    <Select
+                      value={portion.termYears}
+                      onChange={(e) => updatePortionNumber(portion.id, 'termYears', Number(e.target.value))}
+                      size="sm"
+                    >
+                      {TERM_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </Box>
+                  <Button
+                    size="sm"
+                    colorScheme="red"
+                    variant="outline"
+                    onClick={() => removePortion(portion.id)}
+                  >
+                    Ta bort
+                  </Button>
+                </VStack>
+              </Box>
+            ))}
+          </VStack>
+        )}
+
         {portions.length > 0 && (
-          <HStack justify="space-between">
+          <HStack justify="space-between" flexWrap="wrap" gap={2}>
             <Text fontWeight="bold">
               Totalt lånebelopp: {totalAmount.toLocaleString('sv-SE')} SEK
             </Text>

@@ -98,13 +98,13 @@ describe('useMortgageState', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.state.housePrice).toBe(2000000)
-      expect(result.current.state.downPayment).toBe(400000)
+      expect(result.current.state.housePrice).toBe(0)
+      expect(result.current.state.downPayment).toBe(0)
       expect(result.current.state.monthlyIncome).toBe(0)
       expect(result.current.state.monthlyAmortization).toBe(0)
       expect(result.current.state.monthlyOperatingCost).toBe(0)
       expect(result.current.state.monthlyBudgetItems).toHaveLength(0)
-      expect(result.current.state.selectedBank).toBe('sbab')
+      expect(result.current.state.selectedBank).toBe('')
       expect(result.current.state.selectedRateType).toBe('average')
       expect(result.current.state.numberOfBorrowers).toBe(1)
       expect(result.current.state.downPaymentMode).toBe('amount')

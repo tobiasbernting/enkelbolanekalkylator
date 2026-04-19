@@ -42,7 +42,7 @@ function App() {
     loanPortions: state.loanPortions,
   })
 
-  const backHref = `/${window.location.search}`
+  const backHref = '/'
 
   const calculations = useMortgageCalculations({
     housePrice: state.housePrice,
@@ -103,11 +103,11 @@ function App() {
             </Text>
           </Box>
 
-          <HStack justify={{ base: 'center', lg: 'flex-end' }} spacing={3}>
-            <Button onClick={onOpen} colorScheme="blue">
+          <HStack justify={{ base: 'center', lg: 'flex-end' }} spacing={3} flexWrap="wrap">
+            <Button onClick={onOpen} colorScheme="blue" w={{ base: '100%', sm: 'auto' }}>
               Spara beräkning
             </Button>
-            <Button as={Link} to={backHref} variant="outline" colorScheme="blue">
+            <Button as={Link} to={backHref} variant="outline" colorScheme="blue" w={{ base: '100%', sm: 'auto' }}>
               Skapa ny beräkning
             </Button>
           </HStack>

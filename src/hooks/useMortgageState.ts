@@ -38,13 +38,13 @@ export interface MortgageStateActions {
   reset: () => void
 }
 
-const DEFAULT_HOUSE_PRICE = 2000000
-const DEFAULT_DOWN_PAYMENT = 400000
+const DEFAULT_HOUSE_PRICE = 0
+const DEFAULT_DOWN_PAYMENT = 0
 const DEFAULT_MONTHLY_INCOME = 0
 const DEFAULT_MONTHLY_AMORTIZATION = 0
 const DEFAULT_MONTHLY_OPERATING_COST = 0
-const DEFAULT_LOAN_TERM = 50
-const DEFAULT_BANK_ID = 'sbab'
+const DEFAULT_LOAN_TERM = 0
+const DEFAULT_BANK_ID = ''
 const DEFAULT_RATE_TYPE: BankRateType = 'average'
 const DEFAULT_NUMBER_OF_BORROWERS: 1 | 2 = 1
 

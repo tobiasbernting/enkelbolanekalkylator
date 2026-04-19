@@ -115,8 +115,8 @@ export function MortgageFormPage() {
           onReset={actions.reset}
         />
 
-        <Box display="flex" justifyContent="flex-end">
-          <Box textAlign="right">
+        <Box display="flex" justifyContent={{ base: 'center', md: 'flex-end' }}>
+          <Box textAlign={{ base: 'center', md: 'right' }} w={{ base: '100%', md: 'auto' }}>
             {!isFormComplete && (
               <Text fontSize="sm" color="orange.700" mb={2}>
                 Fyll i alla obligatoriska uppgifter (inklusive låneportion) för att gå vidare.
@@ -128,6 +128,7 @@ export function MortgageFormPage() {
               colorScheme="blue"
               size="lg"
               isDisabled={!isFormComplete}
+              w={{ base: '100%', md: 'auto' }}
             >
               Nästa: resultat
             </Button>

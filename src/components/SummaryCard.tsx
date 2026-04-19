@@ -80,7 +80,7 @@ export function SummaryCard({
   const displayedLoanAmount = amountToFinanceSeK ?? loanAmount
 
   return (
-    <Box bg="white" p={8} borderRadius="lg" boxShadow="md">
+    <Box bg="white" p={{ base: 4, md: 8 }} borderRadius="lg" boxShadow="md">
       <VStack spacing={6} align="stretch">
         {/* Highlighted Monthly Payment */}
         <Box bg="blue.50" p={4} borderRadius="md" borderLeft="4px" borderLeftColor="blue.500">
@@ -88,10 +88,10 @@ export function SummaryCard({
             <Text fontSize="sm" color="gray.600" fontWeight="medium">
               Total månadskostnad
             </Text>
-            <Heading as="h1" size="2xl" color="blue.600">
+            <Heading as="h1" size={{ base: 'xl', md: '2xl' }} color="blue.600" wordBreak="break-word">
               {formatCurrency(monthlyPayment)}
             </Heading>
-            <Text fontSize="sm" color="gray.600">
+            <Text fontSize="sm" color="gray.600" whiteSpace="normal">
               (med ränteavdrag: {formatCurrency(Math.max(0, monthlyPayment - monthlyInterestDeduction))}, effektiv månadskostnad: {formatCurrency(effectiveMonthlyPayment)})
             </Text>
           </VStack>
