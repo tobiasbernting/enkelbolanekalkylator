@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/enkelbolanekalkylator/',
+  // Use root-relative assets so custom domain deployments resolve correctly.
+  base: '/',
   plugins: [react()],
   server: {
     port: 5173,
