@@ -8,7 +8,7 @@ import { MortgageFormPage } from '../MortgageFormPage'
 import App from '../../App'
 
 vi.mock('@tanstack/react-router', () => {
-  const Link = forwardRef<HTMLAnchorElement, React.AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }>(
+  const MockLink = forwardRef<HTMLAnchorElement, React.AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }>(
     ({ children, to, ...props }, ref) => (
       <a ref={ref} href={typeof to === 'string' ? to : '#'} {...props}>
         {children}
@@ -16,10 +16,10 @@ vi.mock('@tanstack/react-router', () => {
     )
   )
 
-  Link.displayName = 'MockRouterLink'
+  MockLink.displayName = 'MockRouterLink'
 
   return {
-    Link,
+    Link: MockLink,
   }
 })
 
