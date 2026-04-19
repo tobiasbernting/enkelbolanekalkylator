@@ -2,13 +2,13 @@ import { ChakraProvider } from '@chakra-ui/react'
 import { page } from 'vitest/browser'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRoot, type Root } from 'react-dom/client'
-import type { ReactElement } from 'react'
+import type { AnchorHTMLAttributes, ReactElement } from 'react'
 import { forwardRef } from 'react'
 import { MortgageFormPage } from '../MortgageFormPage'
 import App from '../../App'
 
 vi.mock('@tanstack/react-router', () => {
-  const MockLink = forwardRef<HTMLAnchorElement, React.AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }>(
+  const MockLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }>(
     ({ children, to, ...props }, ref) => (
       <a ref={ref} href={typeof to === 'string' ? to : '#'} {...props}>
         {children}
@@ -26,7 +26,7 @@ vi.mock('@tanstack/react-router', () => {
 let root: Root | null = null
 
 function mount(ui: ReactElement, path = '/') {
-  window.history.replaceState({}, '', path)
+  window.history.replaceState({}, document.title, path)
   document.body.innerHTML = '<div id="root"></div>'
   root = createRoot(document.getElementById('root')!)
   root.render(<ChakraProvider>{ui}</ChakraProvider>)
