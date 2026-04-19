@@ -15,6 +15,7 @@ import {
 } from '@chakra-ui/react'
 import {
   Link,
+  Navigate,
   Outlet,
   useRouterState,
   createRootRoute,
@@ -102,18 +103,36 @@ function RootLayout() {
   )
 }
 
+function MortgageFlowLayout() {
+  const location = useRouterState({
+    select: (state) => state.location,
+  })
+
+  if (location.pathname === '/' && location.searchStr.length > 0) {
+    return <Navigate href={`/resultat${location.searchStr}`} replace />
+  }
+
+  return <Outlet />
+}
+
 const rootRoute = createRootRoute({
   component: RootLayout,
 })
 
-const indexRoute = createRoute({
+const mortgageFlowRoute = createRoute({
   getParentRoute: () => rootRoute,
+  id: 'mortgage-flow',
+  component: MortgageFlowLayout,
+})
+
+const indexRoute = createRoute({
+  getParentRoute: () => mortgageFlowRoute,
   path: '/',
   component: MortgageFormPage,
 })
 
 const resultsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => mortgageFlowRoute,
   path: '/resultat',
   component: App,
 })
@@ -124,7 +143,10 @@ const savedCalculationsRoute = createRoute({
   component: SavedCalculationsPage,
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, resultsRoute, savedCalculationsRoute])
+const routeTree = rootRoute.addChildren([
+  mortgageFlowRoute.addChildren([indexRoute, resultsRoute]),
+  savedCalculationsRoute,
+])
 
 export const router = createRouter({
   routeTree,
