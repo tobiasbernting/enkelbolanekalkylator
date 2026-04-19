@@ -26,6 +26,7 @@ import { useEffect } from 'react'
 import App from './App'
 import { MortgageFormPage } from './components/MortgageFormPage'
 import { SavedCalculationsPage } from './components/SavedCalculationsPage'
+import { useShouldRedirectToResult } from './hooks/useShouldRedirectToResult'
 import { sanitizeSavedCalculationsStorage } from './utils/savedCalculationsStorage'
 
 function RootLayout() {
@@ -107,8 +108,9 @@ function MortgageFlowLayout() {
   const location = useRouterState({
     select: (state) => state.location,
   })
+  const shouldRedirectToResults = useShouldRedirectToResult(location.pathname, location.searchStr)
 
-  if (location.pathname === '/' && location.searchStr.length > 1) {
+  if (shouldRedirectToResults) {
     return <Navigate href={`/resultat${location.searchStr}`} replace />
   }
 
