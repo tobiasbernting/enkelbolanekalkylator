@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   BANK_RATE_PRESETS,
   getEffectiveRatesByType,
@@ -157,43 +157,51 @@ export function useScenarioComparison({
   const hasPortions = loanPortions.length > 0
 
   const selectedPreset = BANK_RATE_PRESETS.find((preset) => preset.id === selectedBank)
-  const bankRatesByTerm = selectedPreset
-    ? getRatesByType(selectedPreset, selectedRateType)
-    : ({} as Record<number, number>)
-  const effectiveBankRatesByTerm = selectedPreset
-    ? getEffectiveRatesByType(selectedPreset, selectedRateType)
-    : ({} as Record<number, number>)
+  const bankRatesByTerm = useMemo(
+    () =>
+      selectedPreset
+        ? getRatesByType(selectedPreset, selectedRateType)
+        : ({} as Record<number, number>),
+    [selectedPreset, selectedRateType]
+  )
+  const effectiveBankRatesByTerm = useMemo(
+    () =>
+      selectedPreset
+        ? getEffectiveRatesByType(selectedPreset, selectedRateType)
+        : ({} as Record<number, number>),
+    [selectedPreset, selectedRateType]
+  )
   const rateTypeLabel = selectedRateType === 'list' ? 'Listränta' : 'Snittränta'
 
-  const getBaseRateForPortion = (portion: LoanPortion): number => {
+  const getBaseRateForPortion = useCallback((portion: LoanPortion): number => {
     return bankRatesByTerm[portion.termYears] ?? portion.interestRate
-  }
+  }, [bankRatesByTerm])
 
-  const getAdjustedRateForPortion = (portion: LoanPortion): number => {
+  const getAdjustedRateForPortion = useCallback((portion: LoanPortion): number => {
     const baseRate = getBaseRateForPortion(portion)
     if (!isThreeMonthTerm(portion.termYears)) {
       return baseRate
     }
 
     return Math.max(0, baseRate + rateShiftPercentPoints)
-  }
+  }, [getBaseRateForPortion, rateShiftPercentPoints])
 
-  const getBaseEffectiveRateForPortion = (portion: LoanPortion): number => {
+  const getBaseEffectiveRateForPortion = useCallback((portion: LoanPortion): number => {
     return (
       effectiveBankRatesByTerm[portion.termYears] ??
       bankRatesByTerm[portion.termYears] ??
       portion.interestRate
     )
-  }
+  }, [effectiveBankRatesByTerm, bankRatesByTerm])
 
-  const getAdjustedEffectiveRateForPortion = (portion: LoanPortion): number => {
+  const getAdjustedEffectiveRateForPortion = useCallback((portion: LoanPortion): number => {
     const baseEffectiveRate = getBaseEffectiveRateForPortion(portion)
     if (!isThreeMonthTerm(portion.termYears)) {
       return baseEffectiveRate
     }
 
     return Math.max(0, baseEffectiveRate + rateShiftPercentPoints)
-  }
+  }, [getBaseEffectiveRateForPortion, rateShiftPercentPoints])
 
   const hasThreeMonthPortion = useMemo(
     () => loanPortions.some((portion) => isThreeMonthTerm(portion.termYears)),
@@ -217,7 +225,7 @@ export function useScenarioComparison({
     }, 0)
 
     return weightedThreeMonthRate / totalThreeMonthAmount
-  }, [loanPortions, bankRatesByTerm])
+  }, [loanPortions, getBaseRateForPortion])
 
   const currentThreeMonthEffectiveRate = useMemo(() => {
     const threeMonthPortions = loanPortions.filter((portion) => isThreeMonthTerm(portion.termYears))
@@ -236,7 +244,7 @@ export function useScenarioComparison({
     }, 0)
 
     return weightedThreeMonthRate / totalThreeMonthAmount
-  }, [loanPortions, effectiveBankRatesByTerm, bankRatesByTerm])
+  }, [loanPortions, getBaseEffectiveRateForPortion])
 
   const totalLoanAmountSeK = useMemo(
     () => loanPortions.reduce((sum, portion) => sum + portion.amountSeK, 0),
@@ -253,14 +261,14 @@ export function useScenarioComparison({
       0
     )
     return weightedSum / totalLoanAmountSeK
-  }, [loanPortions, totalLoanAmountSeK, bankRatesByTerm])
+  }, [loanPortions, totalLoanAmountSeK, getBaseRateForPortion])
 
   const minRate = useMemo(
     () =>
       loanPortions.length > 0
         ? Math.min(...loanPortions.map((portion) => getBaseRateForPortion(portion)))
         : 0,
-    [loanPortions, bankRatesByTerm]
+    [loanPortions, getBaseRateForPortion]
   )
 
   const maxRate = useMemo(
@@ -268,7 +276,7 @@ export function useScenarioComparison({
       loanPortions.length > 0
         ? Math.max(...loanPortions.map((portion) => getBaseRateForPortion(portion)))
         : 0,
-    [loanPortions, bankRatesByTerm]
+    [loanPortions, getBaseRateForPortion]
   )
 
   const baseMonthlyInterest = useMemo(
@@ -277,7 +285,7 @@ export function useScenarioComparison({
         const baseRate = getBaseRateForPortion(portion)
         return sum + (portion.amountSeK * baseRate) / 100 / 12
       }, 0),
-    [loanPortions, bankRatesByTerm]
+    [loanPortions, getBaseRateForPortion]
   )
 
   const adjustedMonthlyInterest = useMemo(
@@ -286,7 +294,7 @@ export function useScenarioComparison({
         const adjustedRate = getAdjustedRateForPortion(portion)
         return sum + (portion.amountSeK * adjustedRate) / 100 / 12
       }, 0),
-    [loanPortions, bankRatesByTerm, rateShiftPercentPoints]
+    [loanPortions, getAdjustedRateForPortion]
   )
 
   const weightedAverageEffectiveRate = useMemo(() => {
@@ -299,14 +307,14 @@ export function useScenarioComparison({
       0
     )
     return weightedSum / totalLoanAmountSeK
-  }, [loanPortions, totalLoanAmountSeK, effectiveBankRatesByTerm, bankRatesByTerm])
+  }, [loanPortions, totalLoanAmountSeK, getBaseEffectiveRateForPortion])
 
   const minEffectiveRate = useMemo(
     () =>
       loanPortions.length > 0
         ? Math.min(...loanPortions.map((portion) => getBaseEffectiveRateForPortion(portion)))
         : 0,
-    [loanPortions, effectiveBankRatesByTerm, bankRatesByTerm]
+    [loanPortions, getBaseEffectiveRateForPortion]
   )
 
   const maxEffectiveRate = useMemo(
@@ -314,7 +322,7 @@ export function useScenarioComparison({
       loanPortions.length > 0
         ? Math.max(...loanPortions.map((portion) => getBaseEffectiveRateForPortion(portion)))
         : 0,
-    [loanPortions, effectiveBankRatesByTerm, bankRatesByTerm]
+    [loanPortions, getBaseEffectiveRateForPortion]
   )
 
   const baseMonthlyEffectiveInterest = useMemo(
@@ -323,7 +331,7 @@ export function useScenarioComparison({
         const baseRate = getBaseEffectiveRateForPortion(portion)
         return sum + (portion.amountSeK * baseRate) / 100 / 12
       }, 0),
-    [loanPortions, effectiveBankRatesByTerm, bankRatesByTerm]
+    [loanPortions, getBaseEffectiveRateForPortion]
   )
 
   const adjustedMonthlyEffectiveInterest = useMemo(
@@ -332,7 +340,7 @@ export function useScenarioComparison({
         const adjustedRate = getAdjustedEffectiveRateForPortion(portion)
         return sum + (portion.amountSeK * adjustedRate) / 100 / 12
       }, 0),
-    [loanPortions, effectiveBankRatesByTerm, bankRatesByTerm, rateShiftPercentPoints]
+    [loanPortions, getAdjustedEffectiveRateForPortion]
   )
 
   const baseMonthlyTotal = baseMonthlyInterest + monthlyAmortizationSeK
@@ -402,8 +410,8 @@ export function useScenarioComparison({
     hasThreeMonthPortion,
     currentThreeMonthRate,
     loanPortions,
-    bankRatesByTerm,
-    effectiveBankRatesByTerm,
+    getBaseRateForPortion,
+    getBaseEffectiveRateForPortion,
     monthlyAmortizationSeK,
     monthlyOperatingCostSeK,
     monthlyBudgetCostSeK,

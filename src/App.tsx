@@ -44,26 +44,6 @@ function App() {
 
   const backHref = `/${window.location.search}`
 
-  if (!isFormComplete) {
-    return (
-      <Container maxW="4xl" py={10}>
-        <VStack spacing={5} align="stretch">
-          <Box bg="white" p={6} borderRadius="lg" boxShadow="md">
-            <Text fontSize="xl" fontWeight="bold" mb={2}>
-              Du kan inte visa resultat ännu
-            </Text>
-            <Text color="gray.600" mb={4}>
-              Fyll i alla obligatoriska uppgifter och minst en låneportion först.
-            </Text>
-            <Button as={Link} to={backHref} colorScheme="blue">
-              Skapa ny beräkning
-            </Button>
-          </Box>
-        </VStack>
-      </Container>
-    )
-  }
-
   const calculations = useMortgageCalculations({
     housePrice: state.housePrice,
     downPayment: state.downPayment,
@@ -84,6 +64,26 @@ function App() {
     setMonthlyAmortization: actions.setMonthlyAmortization,
     setIsMonthlyAmortizationUserSet: actions.setIsMonthlyAmortizationUserSet,
   })
+
+  if (!isFormComplete) {
+    return (
+      <Container maxW="4xl" py={10}>
+        <VStack spacing={5} align="stretch">
+          <Box bg="white" p={6} borderRadius="lg" boxShadow="md">
+            <Text fontSize="xl" fontWeight="bold" mb={2}>
+              Du kan inte visa resultat ännu
+            </Text>
+            <Text color="gray.600" mb={4}>
+              Fyll i alla obligatoriska uppgifter och minst en låneportion först.
+            </Text>
+            <Button as={Link} to={backHref} colorScheme="blue">
+              Skapa ny beräkning
+            </Button>
+          </Box>
+        </VStack>
+      </Container>
+    )
+  }
 
   return (
     <Container maxW="8xl" py={8}>
