@@ -71,8 +71,35 @@ export function useMortgageCalculations({
   const annualIncome = useMemo(() => monthlyIncome * 12, [monthlyIncome])
 
   const effectivePortions = useMemo(() => {
-    return loanPortions
-  }, [loanPortions])
+    if (loanPortions.length > 0) {
+      return loanPortions
+    }
+
+    const amountToFinanceSeK = Math.max(0, housePrice - downPayment)
+    if (amountToFinanceSeK <= 0) {
+      return []
+    }
+
+    const selectedPreset = BANK_RATE_PRESETS.find((preset) => preset.id === selectedBank)
+    const ratesByTerm = selectedPreset ? getRatesByType(selectedPreset, selectedRateType) : {}
+    const defaultTermYears =
+      Object.keys(ratesByTerm)
+        .map((term) => Number(term))
+        .filter((term) => Number.isFinite(term) && term > 0)
+        .sort((a, b) => a - b)[0] ?? 3
+
+    const defaultRate = ratesByTerm[defaultTermYears] ?? 0
+
+    return [
+      {
+        id: 'auto-generated-portion',
+        bankId: selectedBank,
+        amountSeK: amountToFinanceSeK,
+        termYears: defaultTermYears,
+        interestRate: defaultRate,
+      },
+    ]
+  }, [loanPortions, housePrice, downPayment, selectedBank, selectedRateType])
 
   const loanCalculation = useMemo(() => {
     const multiLoan = calculateMultipleLoans(housePrice, downPayment, effectivePortions)

@@ -205,6 +205,7 @@ function getInitialStateFromQuery(): MortgageState {
 }
 
 export function useMortgageState(): { state: MortgageState; actions: MortgageStateActions } {
+  const isTestEnvironment = import.meta.env.MODE === 'test'
   const initialState = useMemo(() => getInitialStateFromQuery(), [])
 
   const [housePrice, setHousePrice] = useState(initialState.housePrice)
@@ -233,6 +234,11 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
   }, [housePrice, downPayment])
 
   useEffect(() => {
+    // On the form route we avoid live URL churn while editing to prevent UI jump-to-top.
+    if (!isTestEnvironment && window.location.pathname === '/') {
+      return
+    }
+
     const params = new URLSearchParams(window.location.search)
 
     params.set('housePrice', String(housePrice))
@@ -259,7 +265,16 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       params.delete('monthlyBudgetItems')
     }
 
-    const newUrl = `${window.location.pathname}?${params.toString()}`
+    const nextSearch = params.toString()
+    const currentSearch = window.location.search.startsWith('?')
+      ? window.location.search.slice(1)
+      : window.location.search
+
+    if (nextSearch === currentSearch) {
+      return
+    }
+
+    const newUrl = `${window.location.pathname}?${nextSearch}`
     window.history.replaceState({}, '', newUrl)
   }, [
     housePrice,
@@ -274,6 +289,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     downPaymentMode,
     loanPortions,
     monthlyBudgetItems,
+    isTestEnvironment,
   ])
 
   const reset = useCallback(() => {

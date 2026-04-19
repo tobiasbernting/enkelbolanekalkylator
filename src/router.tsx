@@ -24,6 +24,7 @@ import {
 } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import App from './App'
+import { MortgageFormPage } from './components/MortgageFormPage'
 import { SaveCalculationDialog } from './components/SaveCalculationDialog'
 import { SavedCalculationsPage } from './components/SavedCalculationsPage'
 import { sanitizeSavedCalculationsStorage } from './utils/savedCalculationsStorage'
@@ -45,7 +46,6 @@ function RootLayout() {
     select: (state) => state.location,
   })
 
-  const isCalculatorRoute = location.pathname === '/'
   const isSavedRoute = location.pathname.startsWith('/sparade-berakningar')
 
   useEffect(() => {
@@ -87,17 +87,6 @@ function RootLayout() {
           <HStack spacing={1} ml={{ base: 3, md: 8 }} display={{ base: 'none', md: 'flex' }}>
             <Button
               as={Link}
-              to="/"
-              variant="ghost"
-              size="md"
-              color={isCalculatorRoute ? 'blue.700' : 'gray.700'}
-              bg={isCalculatorRoute ? 'blue.50' : 'transparent'}
-              _hover={{ bg: isCalculatorRoute ? 'blue.100' : 'gray.100' }}
-            >
-              Kalkylator
-            </Button>
-            <Button
-              as={Link}
               to="/sparade-berakningar"
               variant="ghost"
               size="md"
@@ -117,9 +106,6 @@ function RootLayout() {
                 Meny
               </MenuButton>
               <MenuList>
-                <MenuItem as={Link} to="/">
-                  Kalkylator
-                </MenuItem>
                 <MenuItem as={Link} to="/sparade-berakningar">
                   Sparade beräkningar
                 </MenuItem>
@@ -134,7 +120,7 @@ function RootLayout() {
               variant="outline"
               colorScheme="blue"
               onClick={onOpen}
-              isDisabled={!isCalculatorRoute}
+              isDisabled={isSavedRoute}
             />
           </Tooltip>
         </Container>
@@ -156,6 +142,12 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
+  component: MortgageFormPage,
+})
+
+const resultsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/resultat',
   component: App,
 })
 
@@ -165,9 +157,12 @@ const savedCalculationsRoute = createRoute({
   component: SavedCalculationsPage,
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, savedCalculationsRoute])
+const routeTree = rootRoute.addChildren([indexRoute, resultsRoute, savedCalculationsRoute])
 
-export const router = createRouter({ routeTree })
+export const router = createRouter({
+  routeTree,
+  scrollRestoration: false,
+})
 
 declare module '@tanstack/react-router' {
   interface Register {
