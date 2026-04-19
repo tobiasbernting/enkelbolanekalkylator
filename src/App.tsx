@@ -15,9 +15,12 @@ import {
   GridItem,
   HStack,
   Button,
+  Flex,
+  useDisclosure,
 } from '@chakra-ui/react'
 import { Link } from '@tanstack/react-router'
 import { InputPanel } from './components/InputPanel'
+import { SaveCalculationDialog } from './components/SaveCalculationDialog'
 import { SummaryCard } from './components/SummaryCard'
 import { BankComparisonSection } from './components/BankComparisonSection'
 import { AmortizationSchedule } from './components/AmortizationSchedule'
@@ -29,6 +32,7 @@ import { isMortgageFormComplete } from './utils/mortgageFormCompletion'
 import './App.css'
 
 function App() {
+  const { isOpen, onOpen, onClose } = useDisclosure()
   const { state, actions } = useMortgageState()
   const hasLoanPortions = state.loanPortions.length > 0
   const isFormComplete = isMortgageFormComplete({
@@ -84,20 +88,30 @@ function App() {
   return (
     <Container maxW="8xl" py={8}>
       <VStack spacing={8} align="stretch">
-        <HStack justify="flex-end">
-          <Button as={Link} to={backHref} variant="outline" colorScheme="blue">
-            Skapa ny beräkning
-          </Button>
-        </HStack>
+        <Flex
+          direction={{ base: 'column', lg: 'row' }}
+          justify="space-between"
+          align={{ base: 'stretch', lg: 'center' }}
+          gap={4}
+        >
+          <Box textAlign={{ base: 'center', lg: 'left' }}>
+            <Heading as="h1" size="2xl" mb={2}>
+              Dina beräknade resultat
+            </Heading>
+            <Text fontSize="lg" color="gray.600">
+              Utifrån dina inmatade uppgifter visas din boendekostnad och jämförelser.
+            </Text>
+          </Box>
 
-        <Box textAlign="center">
-          <Heading as="h1" size="2xl" mb={2}>
-            Dina beräknade resultat
-          </Heading>
-          <Text fontSize="lg" color="gray.600">
-            Utifrån dina inmatade uppgifter visas din boendekostnad och jämförelser.
-          </Text>
-        </Box>
+          <HStack justify={{ base: 'center', lg: 'flex-end' }} spacing={3}>
+            <Button onClick={onOpen} colorScheme="blue">
+              Spara beräkning
+            </Button>
+            <Button as={Link} to={backHref} variant="outline" colorScheme="blue">
+              Skapa ny beräkning
+            </Button>
+          </HStack>
+        </Flex>
 
         <Box bg="white" p={5} borderRadius="lg" boxShadow="md" borderLeftWidth="4px" borderLeftColor="blue.500">
           <VStack spacing={4} align="stretch">
@@ -217,6 +231,8 @@ function App() {
             />
           </>
         )}
+
+        <SaveCalculationDialog isOpen={isOpen} onClose={onClose} />
       </VStack>
     </Container>
   )

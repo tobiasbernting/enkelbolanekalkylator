@@ -10,6 +10,7 @@ import {
   Td,
   VStack,
   Heading,
+  useBreakpointValue,
   useColorModeValue,
 } from '@chakra-ui/react'
 import {
@@ -40,6 +41,7 @@ export function AmortizationSchedule({
     housePrice,
     annualIncome,
   })
+  const isMobile = useBreakpointValue({ base: true, md: false }) ?? false
   
   if (schedule.length === 0) {
     return (
@@ -63,10 +65,14 @@ export function AmortizationSchedule({
               <Tr>
                 <Th textAlign="center">År</Th>
                 <Th>Milstolpe</Th>
-                <Th isNumeric>Betalning/År</Th>
-                <Th isNumeric>Amortering</Th>
                 <Th isNumeric>Belåningsgrad</Th>
-                <Th isNumeric>Återstående</Th>
+                {!isMobile && (
+                  <>
+                    <Th isNumeric>Betalning/År</Th>
+                    <Th isNumeric>Amortering</Th>
+                    <Th isNumeric>Återstående</Th>
+                  </>
+                )}
               </Tr>
             </Thead>
             <Tbody>
@@ -94,20 +100,24 @@ export function AmortizationSchedule({
                       <Text fontSize="xs" color="gray.500">-</Text>
                     )}
                   </Td>
-                  <Td isNumeric>{formatCurrency(row.annualPaymentSeK)}</Td>
-                  <Td isNumeric>
-                    <Text color="green.600" fontWeight="medium">
-                      {formatCurrency(row.annualPrincipalSeK)}
-                    </Text>
-                  </Td>
                   <Td isNumeric fontWeight="medium">
                     {housePrice > 0
                       ? `${((row.remainingBalanceSeK / housePrice) * 100).toFixed(1)}%`
                       : '-'}
                   </Td>
-                  <Td isNumeric fontWeight="medium">
-                    {formatCurrency(row.remainingBalanceSeK)}
-                  </Td>
+                  {!isMobile && (
+                    <>
+                      <Td isNumeric>{formatCurrency(row.annualPaymentSeK)}</Td>
+                      <Td isNumeric>
+                        <Text color="green.600" fontWeight="medium">
+                          {formatCurrency(row.annualPrincipalSeK)}
+                        </Text>
+                      </Td>
+                      <Td isNumeric fontWeight="medium">
+                        {formatCurrency(row.remainingBalanceSeK)}
+                      </Td>
+                    </>
+                  )}
                 </Tr>
               )})}
             </Tbody>

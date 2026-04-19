@@ -18,6 +18,7 @@ import {
   Tr,
   Tbody,
   VStack,
+  useBreakpointValue,
 } from '@chakra-ui/react'
 import { formatCurrency, LoanPortion } from '../utils/calculations'
 import { BankRateType } from '../data/bankRates'
@@ -48,6 +49,15 @@ export function ScenarioComparison({
     selectedBank,
     selectedRateType,
   })
+  const isMobile = useBreakpointValue({ base: true, md: false }) ?? false
+  const adjustedWeightedRate =
+    viewModel.totalLoanAmountSeK > 0
+      ? viewModel.sortedPortions.reduce(
+          (sum, portion) =>
+            sum + viewModel.getAdjustedRateForPortion(portion) * portion.amountSeK,
+          0
+        ) / viewModel.totalLoanAmountSeK
+      : 0
 
   if (!viewModel.hasPortions) {
     return (
@@ -125,77 +135,99 @@ export function ScenarioComparison({
             <Thead bg="gray.50">
               <Tr>
                 <Th>Scenario</Th>
-                {viewModel.sortedPortions.map((portion, index) => (
-                  <Th key={portion.id} isNumeric>
-                    <Text>{viewModel.formatPortionHeader(index)}</Text>
-                    <Text fontWeight="normal">({viewModel.formatTerm(portion.termYears)})</Text>
-                  </Th>
-                ))}
-                <Th isNumeric>Nominell ränta/mån</Th>
-                <Th isNumeric>Nominell kostnad/mån</Th>
-                <Th isNumeric>Effektiv ränta/mån</Th>
-                <Th isNumeric>Effektiv kostnad/mån</Th>
-                <Th isNumeric>Total månadskostnad/mån</Th>
-                <Th isNumeric>Skillnad mot nu (total)</Th>
+                {isMobile && <Th isNumeric>Ränta</Th>}
+                <Th isNumeric>Räntekostnad/mån</Th>
+                {!isMobile && (
+                  <>
+                    {viewModel.sortedPortions.map((portion, index) => (
+                      <Th key={portion.id} isNumeric>
+                        <Text>{viewModel.formatPortionHeader(index)}</Text>
+                        <Text fontWeight="normal">({viewModel.formatTerm(portion.termYears)})</Text>
+                      </Th>
+                    ))}
+                    <Th isNumeric>Nominell kostnad/mån</Th>
+                    <Th isNumeric>Effektiv ränta/mån</Th>
+                    <Th isNumeric>Effektiv kostnad/mån</Th>
+                    <Th isNumeric>Total månadskostnad/mån</Th>
+                    <Th isNumeric>Skillnad mot nu (total)</Th>
+                  </>
+                )}
+                {isMobile && <Th isNumeric>Total månadskostnad/mån</Th>}
               </Tr>
             </Thead>
             <Tbody>
               <Tr bg="orange.50">
                 <Td fontWeight="bold">Nuvarande</Td>
-                {viewModel.sortedPortions.map((portion) => (
-                  <Td key={`base-${portion.id}`} isNumeric>
-                    <Text>{viewModel.getBaseRateForPortion(portion).toFixed(2)}%</Text>
-                    <Text fontSize="xs" color="gray.600">
-                      Eff: {viewModel.getBaseEffectiveRateForPortion(portion).toFixed(2)}%
-                    </Text>
-                  </Td>
-                ))}
+                {isMobile && <Td isNumeric>{viewModel.weightedAverageRate.toFixed(2)}%</Td>}
                 <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyInterest)}</Td>
-                <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyTotal)}</Td>
-                <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyEffectiveInterest)}</Td>
-                <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyEffectiveTotal)}</Td>
-                <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyTotalWithBudget)}</Td>
-                <Td isNumeric>0 SEK</Td>
+                {!isMobile && (
+                  <>
+                    {viewModel.sortedPortions.map((portion) => (
+                      <Td key={`base-${portion.id}`} isNumeric>
+                        <Text>{viewModel.getBaseRateForPortion(portion).toFixed(2)}%</Text>
+                        <Text fontSize="xs" color="gray.600">
+                          Eff: {viewModel.getBaseEffectiveRateForPortion(portion).toFixed(2)}%
+                        </Text>
+                      </Td>
+                    ))}
+                    <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyTotal)}</Td>
+                    <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyEffectiveInterest)}</Td>
+                    <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyEffectiveTotal)}</Td>
+                    <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyTotalWithBudget)}</Td>
+                    <Td isNumeric>0 SEK</Td>
+                  </>
+                )}
+                {isMobile && (
+                  <Td isNumeric fontWeight="bold">{formatCurrency(viewModel.baseMonthlyTotalWithBudget)}</Td>
+                )}
               </Tr>
               <Tr>
                 <Td>Justerat ({viewModel.deltaLabel})</Td>
-                {viewModel.sortedPortions.map((portion) => {
-                  const adjustedRate = viewModel.getAdjustedRateForPortion(portion)
-                  const adjustedEffectiveRate = viewModel.getAdjustedEffectiveRateForPortion(portion)
-                  return (
-                    <Td key={`adjusted-${portion.id}`} isNumeric>
-                      <Text>{adjustedRate.toFixed(2)}%</Text>
-                      <Text fontSize="xs" color="gray.600">
-                        Eff: {adjustedEffectiveRate.toFixed(2)}%
-                      </Text>
-                    </Td>
-                  )
-                })}
+                {isMobile && <Td isNumeric>{adjustedWeightedRate.toFixed(2)}%</Td>}
                 <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyInterest)}</Td>
-                <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyTotal)}</Td>
-                <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyEffectiveInterest)}</Td>
-                <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyEffectiveTotal)}</Td>
-                <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyTotalWithBudget)}</Td>
-                <Td
-                  isNumeric
-                  color={
-                    viewModel.adjustedMonthlyTotalWithBudget > viewModel.baseMonthlyTotalWithBudget
-                      ? 'orange.600'
-                      : viewModel.adjustedMonthlyTotalWithBudget < viewModel.baseMonthlyTotalWithBudget
-                        ? 'green.600'
-                        : 'gray.600'
-                  }
-                >
-                  {formatCurrency(
-                    viewModel.adjustedMonthlyTotalWithBudget - viewModel.baseMonthlyTotalWithBudget
-                  )}
-                </Td>
+                {!isMobile && (
+                  <>
+                    {viewModel.sortedPortions.map((portion) => {
+                      const adjustedRate = viewModel.getAdjustedRateForPortion(portion)
+                      const adjustedEffectiveRate = viewModel.getAdjustedEffectiveRateForPortion(portion)
+                      return (
+                        <Td key={`adjusted-${portion.id}`} isNumeric>
+                          <Text>{adjustedRate.toFixed(2)}%</Text>
+                          <Text fontSize="xs" color="gray.600">
+                            Eff: {adjustedEffectiveRate.toFixed(2)}%
+                          </Text>
+                        </Td>
+                      )
+                    })}
+                    <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyTotal)}</Td>
+                    <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyEffectiveInterest)}</Td>
+                    <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyEffectiveTotal)}</Td>
+                    <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyTotalWithBudget)}</Td>
+                    <Td
+                      isNumeric
+                      color={
+                        viewModel.adjustedMonthlyTotalWithBudget > viewModel.baseMonthlyTotalWithBudget
+                          ? 'orange.600'
+                          : viewModel.adjustedMonthlyTotalWithBudget < viewModel.baseMonthlyTotalWithBudget
+                            ? 'green.600'
+                            : 'gray.600'
+                      }
+                    >
+                      {formatCurrency(
+                        viewModel.adjustedMonthlyTotalWithBudget - viewModel.baseMonthlyTotalWithBudget
+                      )}
+                    </Td>
+                  </>
+                )}
+                {isMobile && (
+                  <Td isNumeric>{formatCurrency(viewModel.adjustedMonthlyTotalWithBudget)}</Td>
+                )}
               </Tr>
             </Tbody>
           </Table>
         </Box>
 
-        <Box>
+        <Box display={{ base: 'none', md: 'block' }}>
           <Text fontSize="sm" fontWeight="semibold" mb={2}>
             Ränta per lån (följer förändringen)
           </Text>
@@ -234,7 +266,7 @@ export function ScenarioComparison({
           </Box>
         </Box>
 
-        <Box>
+        <Box display={{ base: 'none', md: 'block' }}>
           <Text fontSize="sm" fontWeight="semibold" mb={2}>
             Historiska scenarier kopplat till världshändelser
           </Text>

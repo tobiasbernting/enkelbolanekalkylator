@@ -3,16 +3,13 @@ import {
   Button,
   Container,
   HStack,
-  Icon,
-  IconButton,
+  Image,
   Menu,
   MenuButton,
   MenuItem,
   MenuList,
   Spacer,
   Text,
-  Tooltip,
-  useDisclosure,
 } from '@chakra-ui/react'
 import {
   Link,
@@ -25,23 +22,10 @@ import {
 import { useEffect } from 'react'
 import App from './App'
 import { MortgageFormPage } from './components/MortgageFormPage'
-import { SaveCalculationDialog } from './components/SaveCalculationDialog'
 import { SavedCalculationsPage } from './components/SavedCalculationsPage'
 import { sanitizeSavedCalculationsStorage } from './utils/savedCalculationsStorage'
 
-function SaveIcon() {
-  return (
-    <Icon viewBox="0 0 24 24" boxSize={5}>
-      <path
-        fill="currentColor"
-        d="M5 3h12l4 4v14H3V3h2zm2 2v6h10V5H7zm0 10v4h10v-4H7zm2 1h6v2H9v-2z"
-      />
-    </Icon>
-  )
-}
-
 function RootLayout() {
-  const { isOpen, onOpen, onClose } = useDisclosure()
   const location = useRouterState({
     select: (state) => state.location,
   })
@@ -67,20 +51,14 @@ function RootLayout() {
       >
         <Container maxW="8xl" h="72px" display="flex" alignItems="center">
           <HStack spacing={3} minW="0">
-            <Box
-              w="30px"
-              h="30px"
-              borderRadius="md"
-              bgGradient="linear(to-br, teal.400, blue.500)"
-              boxShadow="inset 0 0 0 1px rgba(255,255,255,0.3)"
-            />
+            <Image src="/favicon.svg" alt="Enkel Bolånekalkylator" w="30px" h="30px" />
             <Text
               fontSize={{ base: 'xl', md: '2xl' }}
               fontWeight="black"
               color="gray.800"
               letterSpacing="tight"
             >
-              Enkel Bolån
+              Enkel Bolånekalkylator
             </Text>
           </HStack>
 
@@ -112,25 +90,12 @@ function RootLayout() {
               </MenuList>
             </Menu>
           </Box>
-
-          <Tooltip label="Spara beräkning" hasArrow openDelay={120}>
-            <IconButton
-              aria-label="Spara beräkning"
-              icon={<SaveIcon />}
-              variant="outline"
-              colorScheme="blue"
-              onClick={onOpen}
-              isDisabled={isSavedRoute}
-            />
-          </Tooltip>
         </Container>
       </Box>
 
       <Container maxW="8xl" py={6}>
         <Outlet />
       </Container>
-
-      <SaveCalculationDialog isOpen={isOpen} onClose={onClose} />
     </Box>
   )
 }
