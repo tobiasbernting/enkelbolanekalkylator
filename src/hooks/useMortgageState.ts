@@ -15,6 +15,7 @@ export interface MortgageState {
   loanTerm: number
   selectedBank: string
   selectedRateType: BankRateType
+  numberOfBorrowers: 1 | 2
   downPaymentMode: DownPaymentMode
   loanPortions: LoanPortion[]
   monthlyBudgetItems: MonthlyBudgetItem[]
@@ -30,6 +31,7 @@ export interface MortgageStateActions {
   setLoanTerm: (value: number) => void
   setSelectedBank: (value: string) => void
   setSelectedRateType: (value: BankRateType) => void
+  setNumberOfBorrowers: (value: 1 | 2) => void
   setDownPaymentMode: (value: DownPaymentMode) => void
   setLoanPortions: (value: LoanPortion[]) => void
   setMonthlyBudgetItems: (value: MonthlyBudgetItem[]) => void
@@ -44,6 +46,7 @@ const DEFAULT_MONTHLY_OPERATING_COST = 0
 const DEFAULT_LOAN_TERM = 50
 const DEFAULT_BANK_ID = 'sbab'
 const DEFAULT_RATE_TYPE: BankRateType = 'average'
+const DEFAULT_NUMBER_OF_BORROWERS: 1 | 2 = 1
 
 function parseNumberParam(value: string | null, fallback: number): number {
   if (!value) {
@@ -60,6 +63,10 @@ function parseDownPaymentModeParam(value: string | null): DownPaymentMode {
 
 function parseRateTypeParam(value: string | null): BankRateType {
   return value === 'list' ? 'list' : 'average'
+}
+
+function parseNumberOfBorrowersParam(value: string | null): 1 | 2 {
+  return value === '2' ? 2 : 1
 }
 
 function parseAmortizationModeParam(
@@ -198,6 +205,7 @@ function getInitialStateFromQuery(): MortgageState {
     loanTerm: parseNumberParam(params.get('loanTerm'), DEFAULT_LOAN_TERM),
     selectedBank,
     selectedRateType: parseRateTypeParam(params.get('rateType')),
+    numberOfBorrowers: parseNumberOfBorrowersParam(params.get('numberOfBorrowers')),
     downPaymentMode: parseDownPaymentModeParam(params.get('downPaymentMode')),
     loanPortions: parseLoanPortionsParam(params.get('loanPortions'), selectedBank),
     monthlyBudgetItems: parseMonthlyBudgetItemsParam(params.get('monthlyBudgetItems')),
@@ -219,6 +227,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
   const [loanTerm, setLoanTerm] = useState(initialState.loanTerm)
   const [selectedBank, setSelectedBank] = useState(initialState.selectedBank)
   const [selectedRateType, setSelectedRateType] = useState<BankRateType>(initialState.selectedRateType)
+  const [numberOfBorrowers, setNumberOfBorrowers] = useState<1 | 2>(initialState.numberOfBorrowers)
   const [downPaymentMode, setDownPaymentMode] = useState<DownPaymentMode>(initialState.downPaymentMode)
   const [loanPortions, setLoanPortions] = useState<LoanPortion[]>(initialState.loanPortions)
   const [monthlyBudgetItems, setMonthlyBudgetItems] = useState<MonthlyBudgetItem[]>(
@@ -251,6 +260,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     params.set('loanTerm', String(loanTerm))
     params.set('bankId', selectedBank)
     params.set('rateType', selectedRateType)
+    params.set('numberOfBorrowers', String(numberOfBorrowers))
     params.set('downPaymentMode', downPaymentMode)
 
     if (loanPortions.length > 0) {
@@ -286,6 +296,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     loanTerm,
     selectedBank,
     selectedRateType,
+    numberOfBorrowers,
     downPaymentMode,
     loanPortions,
     monthlyBudgetItems,
@@ -302,6 +313,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     setLoanTerm(DEFAULT_LOAN_TERM)
     setSelectedBank(DEFAULT_BANK_ID)
     setSelectedRateType(DEFAULT_RATE_TYPE)
+    setNumberOfBorrowers(DEFAULT_NUMBER_OF_BORROWERS)
     setDownPaymentMode('amount')
     setLoanPortions([])
     setMonthlyBudgetItems([])
@@ -318,6 +330,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       loanTerm,
       selectedBank,
       selectedRateType,
+      numberOfBorrowers,
       downPaymentMode,
       loanPortions,
       monthlyBudgetItems,
@@ -332,6 +345,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       setLoanTerm,
       setSelectedBank,
       setSelectedRateType,
+      setNumberOfBorrowers,
       setDownPaymentMode,
       setLoanPortions,
       setMonthlyBudgetItems,

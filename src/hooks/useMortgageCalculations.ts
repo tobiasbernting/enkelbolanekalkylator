@@ -24,6 +24,7 @@ interface UseMortgageCalculationsParams {
   monthlyBudgetItems: MonthlyBudgetItem[]
   selectedBank: string
   selectedRateType: BankRateType
+  numberOfBorrowers: 1 | 2
   loanPortions: LoanPortion[]
 }
 
@@ -51,10 +52,26 @@ interface UseMortgageCalculationsResult {
   selectedNominalRatePercent: number
   selectedEffectiveRatePercent: number
   selectedEffectiveMonthlyInterestSeK: number
+  selectedMonthlyInterestDeductionSeK: number
+  selectedYearlyInterestDeductionSeK: number
+  selectedYearlyInterestDeductionPerBorrowerSeK: number
+  selectedMonthlyInterestDeductionRatePercent: number
   selectedEffectiveMonthlyCostSeK: number
   selectedEffectiveYearlyCostSeK: number
   perBankSummary: BankComparisonRow[]
   amortizationSchedule: AmortizationRow[]
+}
+
+function calculateYearlyInterestDeduction(
+  yearlyInterestSeK: number,
+  numberOfBorrowers = 1
+): number {
+  const annualInterestSeK = Math.max(0, yearlyInterestSeK)
+  const thresholdSeK = Math.max(1, numberOfBorrowers) * 100000
+  const deductionUpToThresholdSeK = Math.min(annualInterestSeK, thresholdSeK) * 0.3
+  const deductionAboveThresholdSeK = Math.max(0, annualInterestSeK - thresholdSeK) * 0.21
+
+  return deductionUpToThresholdSeK + deductionAboveThresholdSeK
 }
 
 export function useMortgageCalculations({
@@ -66,6 +83,7 @@ export function useMortgageCalculations({
   monthlyBudgetItems,
   selectedBank,
   selectedRateType,
+  numberOfBorrowers,
   loanPortions,
 }: UseMortgageCalculationsParams): UseMortgageCalculationsResult {
   const annualIncome = useMemo(() => monthlyIncome * 12, [monthlyIncome])
@@ -323,6 +341,34 @@ export function useMortgageCalculations({
       effectiveMonthlyAmortization +
       monthlyOperatingCost +
       monthlyBudgetCostSeK)
+
+  const estimatedYearlyInterestSeK = useMemo(() => {
+    const openingDebt = Math.max(0, loanCalculation.loanAmountSeK)
+    const monthlyAmortizationSeK = Math.max(0, effectiveMonthlyAmortization)
+    const monthlyRate = Math.max(0, selectedNominalRatePercent) / 100 / 12
+
+    let annualInterestSeK = 0
+    for (let month = 0; month < 12; month += 1) {
+      const monthOpeningDebt = Math.max(0, openingDebt - month * monthlyAmortizationSeK)
+      annualInterestSeK += monthOpeningDebt * monthlyRate
+    }
+
+    return annualInterestSeK
+  }, [loanCalculation.loanAmountSeK, effectiveMonthlyAmortization, selectedNominalRatePercent])
+
+  const selectedYearlyInterestDeductionSeK = useMemo(
+    () => calculateYearlyInterestDeduction(estimatedYearlyInterestSeK, numberOfBorrowers),
+    [estimatedYearlyInterestSeK, numberOfBorrowers]
+  )
+
+  const selectedMonthlyInterestDeductionSeK = selectedYearlyInterestDeductionSeK / 12
+  const selectedYearlyInterestDeductionPerBorrowerSeK =
+    selectedYearlyInterestDeductionSeK / numberOfBorrowers
+
+  const selectedMonthlyInterestDeductionRatePercent =
+    loanCalculation.monthlyPaymentSeK > 0
+      ? (selectedMonthlyInterestDeductionSeK / loanCalculation.monthlyPaymentSeK) * 100
+      : 0
   const selectedEffectiveYearlyCostSeK = selectedEffectiveMonthlyCostSeK * 12
 
   return {
@@ -340,6 +386,10 @@ export function useMortgageCalculations({
     selectedNominalRatePercent,
     selectedEffectiveRatePercent,
     selectedEffectiveMonthlyInterestSeK,
+    selectedMonthlyInterestDeductionSeK,
+    selectedYearlyInterestDeductionSeK,
+    selectedYearlyInterestDeductionPerBorrowerSeK,
+    selectedMonthlyInterestDeductionRatePercent,
     selectedEffectiveMonthlyCostSeK,
     selectedEffectiveYearlyCostSeK,
     perBankSummary,

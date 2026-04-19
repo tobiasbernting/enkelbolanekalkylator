@@ -13,6 +13,11 @@ interface SummaryCardProps {
   budgetMonthlyCost: number
   interestMonthlyPayment: number
   effectiveInterestMonthlyPayment: number
+  monthlyInterestDeduction: number
+  yearlyInterestDeduction: number
+  yearlyInterestDeductionPerBorrower: number
+  numberOfBorrowers: 1 | 2
+  monthlyInterestDeductionRatePercent: number
   effectiveMonthlyPayment: number
   nominalRatePercent: number
   effectiveRatePercent: number
@@ -59,6 +64,11 @@ export function SummaryCard({
   budgetMonthlyCost,
   interestMonthlyPayment,
   effectiveInterestMonthlyPayment,
+  monthlyInterestDeduction,
+  yearlyInterestDeduction,
+  yearlyInterestDeductionPerBorrower,
+  numberOfBorrowers,
+  monthlyInterestDeductionRatePercent,
   effectiveMonthlyPayment,
   nominalRatePercent,
   effectiveRatePercent,
@@ -82,7 +92,7 @@ export function SummaryCard({
               {formatCurrency(monthlyPayment)}
             </Heading>
             <Text fontSize="sm" color="gray.600">
-              (Effektiv månadskostnad: {formatCurrency(effectiveMonthlyPayment)})
+              (med ränteavdrag: {formatCurrency(Math.max(0, monthlyPayment - monthlyInterestDeduction))}, effektiv månadskostnad: {formatCurrency(effectiveMonthlyPayment)})
             </Text>
           </VStack>
         </Box>
@@ -105,6 +115,24 @@ export function SummaryCard({
             <StatItem
               label="Räntekostnad/mån (effektiv räntekostnad)"
               value={`${formatCurrency(interestMonthlyPayment)} (${formatCurrency(effectiveInterestMonthlyPayment)})`}
+            />
+          </GridItem>
+          <GridItem>
+            <StatItem
+              label="Räntekostnad/mån (med ränteavdrag)"
+              value={formatCurrency(Math.max(0, interestMonthlyPayment - monthlyInterestDeduction))}
+            />
+          </GridItem>
+          <GridItem>
+            <StatItem
+              label="Ränteavdrag/mån (hushåll)"
+              value={`${monthlyInterestDeductionRatePercent.toFixed(1)}%, ${formatCurrency(monthlyInterestDeduction)}`}
+            />
+          </GridItem>
+          <GridItem>
+            <StatItem
+              label={`Ränteavdrag/år (${numberOfBorrowers} låntagare, per person)`}
+              value={`${formatCurrency(yearlyInterestDeduction)} (${formatCurrency(yearlyInterestDeductionPerBorrower)})`}
             />
           </GridItem>
           <GridItem>

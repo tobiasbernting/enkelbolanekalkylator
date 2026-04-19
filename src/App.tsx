@@ -69,6 +69,7 @@ function App() {
     monthlyBudgetItems: state.monthlyBudgetItems,
     selectedBank: state.selectedBank,
     selectedRateType: state.selectedRateType,
+    numberOfBorrowers: state.numberOfBorrowers,
     loanPortions: state.loanPortions,
   })
 
@@ -149,6 +150,7 @@ function App() {
                 isMonthlyAmortizationAuto={amortizationControl.isMonthlyAmortizationAuto}
                 selectedBank={state.selectedBank}
                 selectedRateType={state.selectedRateType}
+                numberOfBorrowers={state.numberOfBorrowers}
                 downPaymentMode={state.downPaymentMode}
                 loanPortions={state.loanPortions}
                 monthlyBudgetItems={state.monthlyBudgetItems}
@@ -160,6 +162,7 @@ function App() {
                 onMonthlyAmortizationModeChange={amortizationControl.setAmortizationMode}
                 onSelectedBankChange={actions.setSelectedBank}
                 onSelectedRateTypeChange={actions.setSelectedRateType}
+                onNumberOfBorrowersChange={actions.setNumberOfBorrowers}
                 onDownPaymentModeChange={actions.setDownPaymentMode}
                 onLoanPortionsChange={actions.setLoanPortions}
                 onMonthlyBudgetItemsChange={actions.setMonthlyBudgetItems}
@@ -174,6 +177,11 @@ function App() {
           budgetMonthlyCost={calculations.monthlyBudgetCostSeK}
           interestMonthlyPayment={calculations.loanCalculation.monthlyPaymentSeK}
           effectiveInterestMonthlyPayment={calculations.selectedEffectiveMonthlyInterestSeK}
+          monthlyInterestDeduction={calculations.selectedMonthlyInterestDeductionSeK}
+          yearlyInterestDeduction={calculations.selectedYearlyInterestDeductionSeK}
+          yearlyInterestDeductionPerBorrower={calculations.selectedYearlyInterestDeductionPerBorrowerSeK}
+          numberOfBorrowers={state.numberOfBorrowers}
+          monthlyInterestDeductionRatePercent={calculations.selectedMonthlyInterestDeductionRatePercent}
           effectiveMonthlyPayment={calculations.selectedEffectiveMonthlyCostSeK}
           nominalRatePercent={calculations.selectedNominalRatePercent}
           effectiveRatePercent={calculations.selectedEffectiveRatePercent}

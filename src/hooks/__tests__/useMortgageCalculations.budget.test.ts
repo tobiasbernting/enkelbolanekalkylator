@@ -17,6 +17,7 @@ describe('useMortgageCalculations with monthly budget', () => {
         ],
         selectedBank: 'sbab',
         selectedRateType: 'average',
+        numberOfBorrowers: 1,
         loanPortions: [],
       })
     )
@@ -42,6 +43,7 @@ describe('useMortgageCalculations with monthly budget', () => {
         ],
         selectedBank: 'sbab',
         selectedRateType: 'average',
+        numberOfBorrowers: 1,
         loanPortions: [],
       })
     )

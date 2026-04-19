@@ -30,6 +30,7 @@ interface InputPanelProps {
   isMonthlyAmortizationAuto: boolean;
   selectedBank: string;
   selectedRateType: BankRateType;
+  numberOfBorrowers: 1 | 2;
   downPaymentMode: DownPaymentMode;
   loanPortions: LoanPortion[];
   monthlyBudgetItems: MonthlyBudgetItem[];
@@ -41,6 +42,7 @@ interface InputPanelProps {
   onMonthlyAmortizationModeChange: (isAuto: boolean) => void;
   onSelectedBankChange: (bankId: string) => void;
   onSelectedRateTypeChange: (rateType: BankRateType) => void;
+  onNumberOfBorrowersChange: (value: 1 | 2) => void;
   onDownPaymentModeChange: (mode: DownPaymentMode) => void;
   onLoanPortionsChange: (portions: LoanPortion[]) => void;
   onMonthlyBudgetItemsChange: (items: MonthlyBudgetItem[]) => void;
@@ -57,6 +59,7 @@ export function InputPanel({
   isMonthlyAmortizationAuto,
   selectedBank,
   selectedRateType,
+  numberOfBorrowers,
   downPaymentMode,
   loanPortions,
   monthlyBudgetItems,
@@ -68,6 +71,7 @@ export function InputPanel({
   onMonthlyAmortizationModeChange,
   onSelectedBankChange,
   onSelectedRateTypeChange,
+  onNumberOfBorrowersChange,
   onDownPaymentModeChange,
   onLoanPortionsChange,
   onMonthlyBudgetItemsChange,
@@ -221,6 +225,28 @@ export function InputPanel({
               onChange={(e) => viewModel.onMonthlyOperatingCostInputChange(e.target.value)}
               inputMode="numeric"
             />
+          </FormControl>
+
+          <FormControl>
+            <FormLabel mb={2} lineHeight="short" whiteSpace="normal">Antal låntagare</FormLabel>
+            <HStack spacing={3}>
+              <Button
+                size="sm"
+                variant={numberOfBorrowers === 1 ? 'solid' : 'outline'}
+                colorScheme="blue"
+                onClick={() => onNumberOfBorrowersChange(1)}
+              >
+                1
+              </Button>
+              <Button
+                size="sm"
+                variant={numberOfBorrowers === 2 ? 'solid' : 'outline'}
+                colorScheme="blue"
+                onClick={() => onNumberOfBorrowersChange(2)}
+              >
+                2
+              </Button>
+            </HStack>
           </FormControl>
 
         </Grid>

@@ -39,6 +39,7 @@ export function MortgageFormPage() {
     params.set('loanTerm', String(state.loanTerm))
     params.set('bankId', state.selectedBank)
     params.set('rateType', state.selectedRateType)
+    params.set('numberOfBorrowers', String(state.numberOfBorrowers))
     params.set('downPaymentMode', state.downPaymentMode)
 
     if (state.loanPortions.length > 0) {
@@ -61,6 +62,7 @@ export function MortgageFormPage() {
     monthlyBudgetItems: state.monthlyBudgetItems,
     selectedBank: state.selectedBank,
     selectedRateType: state.selectedRateType,
+    numberOfBorrowers: state.numberOfBorrowers,
     loanPortions: state.loanPortions,
   })
 
@@ -94,6 +96,7 @@ export function MortgageFormPage() {
           isMonthlyAmortizationAuto={amortizationControl.isMonthlyAmortizationAuto}
           selectedBank={state.selectedBank}
           selectedRateType={state.selectedRateType}
+          numberOfBorrowers={state.numberOfBorrowers}
           downPaymentMode={state.downPaymentMode}
           loanPortions={state.loanPortions}
           monthlyBudgetItems={state.monthlyBudgetItems}
@@ -105,6 +108,7 @@ export function MortgageFormPage() {
           onMonthlyAmortizationModeChange={amortizationControl.setAmortizationMode}
           onSelectedBankChange={actions.setSelectedBank}
           onSelectedRateTypeChange={actions.setSelectedRateType}
+          onNumberOfBorrowersChange={actions.setNumberOfBorrowers}
           onDownPaymentModeChange={actions.setDownPaymentMode}
           onLoanPortionsChange={actions.setLoanPortions}
           onMonthlyBudgetItemsChange={actions.setMonthlyBudgetItems}

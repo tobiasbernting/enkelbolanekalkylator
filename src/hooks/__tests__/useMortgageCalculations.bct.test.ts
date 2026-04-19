@@ -25,6 +25,7 @@ describe('BCT: useMortgageCalculations', () => {
 				monthlyBudgetItems: [],
 				selectedBank: 'sbab',
 				selectedRateType: 'average',
+				numberOfBorrowers: 1,
 				loanPortions: partialPortions,
 			})
 		)
@@ -45,6 +46,7 @@ describe('BCT: useMortgageCalculations', () => {
 				monthlyBudgetItems: [],
 				selectedBank: 'sbab',
 				selectedRateType: 'average',
+				numberOfBorrowers: 1,
 				loanPortions: [],
 			})
 		)
@@ -84,6 +86,7 @@ describe('BCT: useMortgageCalculations', () => {
 				],
 				selectedBank: 'sbab',
 				selectedRateType: 'average',
+				numberOfBorrowers: 1,
 				loanPortions: portions,
 			})
 		)
@@ -94,5 +97,33 @@ describe('BCT: useMortgageCalculations', () => {
 		for (let i = 1; i < interests.length; i++) {
 			expect(interests[i]).toBeGreaterThanOrEqual(interests[i - 1])
 		}
+	})
+
+	it('estimates yearly interest deduction from average yearly debt and splits per borrower', () => {
+		const { result } = renderHook(() =>
+			useMortgageCalculations({
+				housePrice: 3700000,
+				downPayment: 730000,
+				monthlyIncome: 90000,
+				monthlyAmortization: 5000,
+				monthlyOperatingCost: 0,
+				monthlyBudgetItems: [],
+				selectedBank: 'seb',
+				selectedRateType: 'average',
+				numberOfBorrowers: 2,
+				loanPortions: [
+					{
+						id: 'portion-1',
+						bankId: 'seb',
+						amountSeK: 2970000,
+						termYears: 3,
+						interestRate: 3.05,
+					},
+				],
+			})
+		)
+
+		expect(result.current.selectedYearlyInterestDeductionPerBorrowerSeK).toBeCloseTo(13462, 0)
+		expect(result.current.selectedYearlyInterestDeductionSeK).toBeCloseTo(26924, 0)
 	})
 })

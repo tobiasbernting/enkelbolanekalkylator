@@ -14,6 +14,7 @@ describe('useMortgageState', () => {
       loanTerm: '10',
       bankId: 'swedbank',
       rateType: 'list',
+      numberOfBorrowers: '2',
       downPaymentMode: 'percentage',
       monthlyBudgetItems: JSON.stringify([
         {
@@ -51,6 +52,7 @@ describe('useMortgageState', () => {
     expect(result.current.state.loanTerm).toBe(10)
     expect(result.current.state.selectedBank).toBe('swedbank')
     expect(result.current.state.selectedRateType).toBe('list')
+    expect(result.current.state.numberOfBorrowers).toBe(2)
     expect(result.current.state.downPaymentMode).toBe('percentage')
     expect(result.current.state.loanPortions).toHaveLength(1)
   })
@@ -73,6 +75,7 @@ describe('useMortgageState', () => {
       result.current.actions.setIsMonthlyAmortizationUserSet(true)
       result.current.actions.setSelectedBank('nordea')
       result.current.actions.setSelectedRateType('list')
+      result.current.actions.setNumberOfBorrowers(2)
       result.current.actions.setDownPaymentMode('percentage')
     })
 
@@ -81,6 +84,7 @@ describe('useMortgageState', () => {
       expect(searchParams.get('housePrice')).toBe('3600000')
       expect(searchParams.get('bankId')).toBe('nordea')
       expect(searchParams.get('rateType')).toBe('list')
+      expect(searchParams.get('numberOfBorrowers')).toBe('2')
       expect(searchParams.get('downPaymentMode')).toBe('percentage')
       expect(searchParams.get('amortizationMode')).toBe('manual')
       expect(searchParams.get('monthlyOperatingCost')).toBe('3200')
@@ -102,6 +106,7 @@ describe('useMortgageState', () => {
       expect(result.current.state.monthlyBudgetItems).toHaveLength(0)
       expect(result.current.state.selectedBank).toBe('sbab')
       expect(result.current.state.selectedRateType).toBe('average')
+      expect(result.current.state.numberOfBorrowers).toBe(1)
       expect(result.current.state.downPaymentMode).toBe('amount')
     })
   })
