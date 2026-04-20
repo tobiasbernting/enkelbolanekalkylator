@@ -111,7 +111,7 @@ function MortgageFlowLayout() {
   const shouldRedirectToResults = useShouldRedirectToResult(location.pathname, location.searchStr)
 
   if (shouldRedirectToResults) {
-    return <Navigate href={`/resultat${location.searchStr}`} replace />
+    return <Navigate to={`/resultat${location.searchStr}`} replace />
   }
 
   return <Outlet />
