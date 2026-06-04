@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Enkel Bolånekalkylator</title>
+    <script>
+      // Restore path encoded by 404.html after GitHub Pages SPA redirect.
+      // 404.html rewrites /resultat?foo=bar → /?/resultat&foo=bar
+      // This script runs before React and restores the original URL via replaceState.
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search.slice(1).split('&').map(function (s) {
+            return s.replace(/~and~/g, '&');
+          });
+          window.history.replaceState(
+            null,
+            null,
+            decoded.shift() + (decoded.length ? '?' + decoded.join('&') : '') + l.hash
+          );
+        }
+      })(window.location);
+    </script>
+    <script type="module" crossorigin src="/assets/index-QUJbEz7F.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CXWcgA3M.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

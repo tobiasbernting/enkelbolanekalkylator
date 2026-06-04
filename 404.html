@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Enkel Bolånekalkylator</title>
+    <script>
+      // GitHub Pages SPA redirect: encode the real path as a query param on /
+      // so the server returns index.html, and the restore script in index.html
+      // uses history.replaceState to put the original URL back before React boots.
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.host + '/' +
+        '?/' +
+        l.pathname.slice(1).replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>

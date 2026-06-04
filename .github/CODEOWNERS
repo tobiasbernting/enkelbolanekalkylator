@@ -1,0 +1,7 @@
+# See: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default ownership for all files in this repository.
+* @tobiasbernting
+
+# CI and deployment workflow ownership.
+.github/workflows/* @tobiasbernting
