@@ -15,6 +15,7 @@ import {
 } from '@chakra-ui/react'
 import {
   Link,
+  Navigate,
   Outlet,
   useRouterState,
   createRootRoute,
@@ -25,6 +26,7 @@ import { useEffect } from 'react'
 import App from './App'
 import { MortgageFormPage } from './components/MortgageFormPage'
 import { SavedCalculationsPage } from './components/SavedCalculationsPage'
+import { useShouldRedirectToResult } from './hooks/useShouldRedirectToResult'
 import { sanitizeSavedCalculationsStorage } from './utils/savedCalculationsStorage'
 
 function RootLayout() {
@@ -102,18 +104,37 @@ function RootLayout() {
   )
 }
 
+function MortgageFlowLayout() {
+  const location = useRouterState({
+    select: (state) => state.location,
+  })
+  const shouldRedirectToResults = useShouldRedirectToResult(location.pathname, location.searchStr)
+
+  if (shouldRedirectToResults) {
+    return <Navigate to={`/resultat${location.searchStr}`} replace />
+  }
+
+  return <Outlet />
+}
+
 const rootRoute = createRootRoute({
   component: RootLayout,
 })
 
-const indexRoute = createRoute({
+const mortgageFlowRoute = createRoute({
   getParentRoute: () => rootRoute,
+  id: 'mortgage-flow',
+  component: MortgageFlowLayout,
+})
+
+const indexRoute = createRoute({
+  getParentRoute: () => mortgageFlowRoute,
   path: '/',
   component: MortgageFormPage,
 })
 
 const resultsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => mortgageFlowRoute,
   path: '/resultat',
   component: App,
 })
@@ -124,7 +145,10 @@ const savedCalculationsRoute = createRoute({
   component: SavedCalculationsPage,
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, resultsRoute, savedCalculationsRoute])
+const routeTree = rootRoute.addChildren([
+  mortgageFlowRoute.addChildren([indexRoute, resultsRoute]),
+  savedCalculationsRoute,
+])
 
 export const router = createRouter({
   routeTree,
