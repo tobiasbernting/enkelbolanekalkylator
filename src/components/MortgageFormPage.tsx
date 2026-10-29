@@ -2,6 +2,7 @@ import {
   Box,
   Button,
   Container,
+  SimpleGrid,
   Text,
   VStack,
 } from '@chakra-ui/react'
@@ -10,8 +11,21 @@ import { Link } from '@tanstack/react-router'
 import { InputPanel } from './InputPanel'
 import { useAutoAmortization } from '../hooks/useAutoAmortization'
 import { useMortgageCalculations } from '../hooks/useMortgageCalculations'
-import { useMortgageState } from '../hooks/useMortgageState'
+import { buildMortgageSearchParams, useMortgageState, type LoanMode } from '../hooks/useMortgageState'
 import { isMortgageFormComplete } from '../utils/mortgageFormCompletion'
+
+const LOAN_MODE_OPTIONS: { mode: LoanMode; title: string; description: string }[] = [
+  {
+    mode: 'new',
+    title: 'Jag ska ta ett nytt bolån',
+    description: 'Räkna på huspris, handpenning och vad lånet kommer att kosta.',
+  },
+  {
+    mode: 'existing',
+    title: 'Jag har redan ett bolån',
+    description: 'Fyll i ditt lån och se vad som händer om räntan eller amorteringen ändras.',
+  },
+]
 
 export function MortgageFormPage() {
   const { state, actions } = useMortgageState()
@@ -19,39 +33,19 @@ export function MortgageFormPage() {
   const isFormComplete = useMemo(
     () =>
       isMortgageFormComplete({
+        loanMode: state.loanMode,
         housePrice: state.housePrice,
         downPayment: state.downPayment,
         monthlyIncome: state.monthlyIncome,
         loanPortions: state.loanPortions,
       }),
-    [state.housePrice, state.downPayment, state.monthlyIncome, state.loanPortions]
+    [state.loanMode, state.housePrice, state.downPayment, state.monthlyIncome, state.loanPortions]
   )
 
-  const resultHref = useMemo(() => {
-    const params = new URLSearchParams()
-
-    params.set('housePrice', String(state.housePrice))
-    params.set('downPayment', String(state.downPayment))
-    params.set('monthlyIncome', String(state.monthlyIncome))
-    params.set('monthlyAmortization', String(state.monthlyAmortization))
-    params.set('monthlyOperatingCost', String(state.monthlyOperatingCost))
-    params.set('amortizationMode', state.isMonthlyAmortizationUserSet ? 'manual' : 'auto')
-    params.set('loanTerm', String(state.loanTerm))
-    params.set('bankId', state.selectedBank)
-    params.set('rateType', state.selectedRateType)
-    params.set('numberOfBorrowers', String(state.numberOfBorrowers))
-    params.set('downPaymentMode', state.downPaymentMode)
-
-    if (state.loanPortions.length > 0) {
-      params.set('loanPortions', JSON.stringify(state.loanPortions))
-    }
-
-    if (state.monthlyBudgetItems.length > 0) {
-      params.set('monthlyBudgetItems', JSON.stringify(state.monthlyBudgetItems))
-    }
-
-    return `/resultat?${params.toString()}`
-  }, [state])
+  const resultHref = useMemo(
+    () => `/resultat?${buildMortgageSearchParams(state).toString()}`,
+    [state]
+  )
 
   const calculations = useMortgageCalculations({
     housePrice: state.housePrice,
@@ -64,6 +58,8 @@ export function MortgageFormPage() {
     selectedRateType: state.selectedRateType,
     numberOfBorrowers: state.numberOfBorrowers,
     loanPortions: state.loanPortions,
+    loanMode: state.loanMode,
+    isMonthlyAmortizationUserSet: state.isMonthlyAmortizationUserSet,
   })
 
   const amortizationControl = useAutoAmortization({
@@ -86,7 +82,39 @@ export function MortgageFormPage() {
           </Text>
         </Box>
 
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} role="radiogroup" aria-label="Typ av beräkning">
+          {LOAN_MODE_OPTIONS.map((option) => {
+            const isSelected = state.loanMode === option.mode
+            return (
+              <Box
+                key={option.mode}
+                as="button"
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                onClick={() => actions.setLoanMode(option.mode)}
+                textAlign="left"
+                p={4}
+                borderRadius="lg"
+                borderWidth={2}
+                borderColor={isSelected ? 'blue.500' : 'gray.200'}
+                bg={isSelected ? 'blue.50' : 'white'}
+                boxShadow={isSelected ? 'md' : 'sm'}
+                _hover={{ borderColor: isSelected ? 'blue.500' : 'blue.200' }}
+              >
+                <Text fontWeight="bold" fontSize="lg" color={isSelected ? 'blue.800' : 'gray.800'}>
+                  {option.title}
+                </Text>
+                <Text fontSize="sm" color="gray.600" mt={1}>
+                  {option.description}
+                </Text>
+              </Box>
+            )
+          })}
+        </SimpleGrid>
+
         <InputPanel
+          loanMode={state.loanMode}
           housePrice={state.housePrice}
           downPayment={state.downPayment}
           monthlyIncome={state.monthlyIncome}
@@ -119,7 +147,9 @@ export function MortgageFormPage() {
           <Box textAlign={{ base: 'center', md: 'right' }} w={{ base: '100%', md: 'auto' }}>
             {!isFormComplete && (
               <Text fontSize="sm" color="orange.700" mb={2}>
-                Fyll i alla obligatoriska uppgifter (inklusive låneportion) för att gå vidare.
+                {state.loanMode === 'existing'
+                  ? 'Fyll i bostadens värde, kvarvarande lån och minst en låneportion för att gå vidare.'
+                  : 'Fyll i alla obligatoriska uppgifter (inklusive låneportion) för att gå vidare.'}
               </Text>
             )}
             <Button

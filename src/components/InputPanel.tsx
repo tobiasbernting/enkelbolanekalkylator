@@ -17,10 +17,11 @@ import { MonthlyBudgetSection } from './MonthlyBudgetSection'
 import type { LoanPortion } from '../utils/calculations'
 import type { BankRateType } from '../data/bankRates'
 import { useInputPanelState } from '../hooks/useInputPanelState'
-import type { DownPaymentMode } from '../hooks/useMortgageState'
+import type { DownPaymentMode, LoanMode } from '../hooks/useMortgageState'
 import type { MonthlyBudgetItem } from '../types/monthlyBudget'
 
 interface InputPanelProps {
+  loanMode?: LoanMode;
   housePrice: number;
   downPayment: number;
   monthlyIncome: number;
@@ -50,6 +51,7 @@ interface InputPanelProps {
 }
 
 export function InputPanel({
+  loanMode = 'new',
   housePrice,
   downPayment,
   monthlyIncome,
@@ -77,7 +79,9 @@ export function InputPanel({
   onMonthlyBudgetItemsChange,
   onReset,
 }: InputPanelProps) {
+  const isExistingLoan = loanMode === 'existing'
   const viewModel = useInputPanelState({
+    loanMode,
     housePrice,
     downPayment,
     monthlyIncome,
@@ -110,17 +114,30 @@ export function InputPanel({
             borderRadius="md"
           >
             <Text fontSize="xs" color="orange.800" lineHeight="short">
-              Angivet amorteringsvärde är under minimikravet.
+              Angivet amorteringsvärde är under amorteringskravet för ett nytt lån
+              ({Math.round(minimumMonthlyAmortization).toLocaleString('sv-SE')} SEK/mån).
             </Text>
             <Text fontSize="xs" color="orange.800" fontWeight="semibold" mt={1}>
-              Minst {Math.round(minimumMonthlyAmortization).toLocaleString('sv-SE')} SEK/mån används i beräkningen.
+              {isExistingLoan
+                ? 'Ditt belopp används i beräkningen. För befintliga lån kan kravet vara lägre, t.ex. för lån tagna före 2016 eller om banken räknar på ett äldre värde.'
+                : `Minst ${Math.round(minimumMonthlyAmortization).toLocaleString('sv-SE')} SEK/mån används i beräkningen.`}
+            </Text>
+          </Box>
+        )}
+
+        {viewModel.isLoanAboveHouseValue && (
+          <Box p={2.5} bg="red.50" borderWidth={1} borderColor="red.200" borderRadius="md">
+            <Text fontSize="xs" color="red.800">
+              Kvarvarande lån är större än bostadens värde. Kontrollera beloppen.
             </Text>
           </Box>
         )}
 
         <Grid templateColumns={{ base: '1fr', md: '1fr 1fr', xl: '1fr 1fr 1fr' }} gap={4} alignItems="start">
           <FormControl>
-            <FormLabel mb={2} lineHeight="short" whiteSpace="normal">Huspris (SEK)</FormLabel>
+            <FormLabel mb={2} lineHeight="short" whiteSpace="normal">
+              {isExistingLoan ? 'Bostadens värde idag (SEK)' : 'Huspris (SEK)'}
+            </FormLabel>
             <Input
               value={viewModel.housePriceFieldValue}
               onChange={(e) => viewModel.onHousePriceInputChange(e.target.value)}
@@ -129,7 +146,9 @@ export function InputPanel({
           </FormControl>
 
           <FormControl>
-            <FormLabel mb={2} lineHeight="short" whiteSpace="normal">Månadsinkomst (SEK)</FormLabel>
+            <FormLabel mb={2} lineHeight="short" whiteSpace="normal">
+              {isExistingLoan ? 'Månadsinkomst före skatt (SEK, valfritt)' : 'Månadsinkomst före skatt (SEK)'}
+            </FormLabel>
             <Input
               value={viewModel.monthlyIncomeFieldValue}
               onChange={(e) => viewModel.onMonthlyIncomeInputChange(e.target.value)}
@@ -137,52 +156,65 @@ export function InputPanel({
             />
           </FormControl>
 
-          <FormControl position="relative">
-            <FormLabel mb={2} lineHeight="short" whiteSpace="normal" pr={{ base: 0, md: '172px' }}>
-              Handpenning
-            </FormLabel>
-            <HStack
-              spacing={2}
-              align="center"
-              position={{ base: 'static', md: 'absolute' }}
-              top="0"
-              right="0"
-              mb={{ base: 2, md: 0 }}
-            >
-              <Text fontSize="sm" fontWeight={downPaymentMode === 'amount' ? 'semibold' : 'medium'} color={downPaymentMode === 'amount' ? 'gray.900' : 'gray.600'}>
-                Belopp
-              </Text>
-              <Switch
-                size="sm"
-                colorScheme="blue"
-                isChecked={downPaymentMode === 'percentage'}
-                onChange={(e) => viewModel.onDownPaymentModeSwitchChange(e.target.checked)}
-              />
-              <Text fontSize="sm" fontWeight={downPaymentMode === 'percentage' ? 'semibold' : 'medium'} color={downPaymentMode === 'percentage' ? 'gray.900' : 'gray.600'}>
-                Procent
-              </Text>
-            </HStack>
-            {downPaymentMode === 'percentage' ? (
-              <NumberInput
-                value={Number.isFinite(viewModel.downPaymentPercent) ? Number(viewModel.downPaymentPercent.toFixed(1)) : 0}
-                onChange={viewModel.onDownPaymentPercentChange}
-                min={0}
-                max={100}
-                step={0.1}
-                clampValueOnBlur={false}
-                keepWithinRange={false}
-              >
-                <NumberInputField inputMode="decimal" />
-              </NumberInput>
-            ) : (
+          {isExistingLoan ? (
+            <FormControl>
+              <FormLabel mb={2} lineHeight="short" whiteSpace="normal">Kvarvarande lån (SEK)</FormLabel>
               <Input
-                value={viewModel.downPaymentFieldValue}
-                onChange={(e) => viewModel.onDownPaymentInputChange(e.target.value)}
+                value={viewModel.currentLoanFieldValue}
+                onChange={(e) => viewModel.onCurrentLoanInputChange(e.target.value)}
                 inputMode="numeric"
               />
-            )}
+            </FormControl>
+          ) : (
+            <FormControl position="relative">
+              <FormLabel mb={2} lineHeight="short" whiteSpace="normal" pr={{ base: 0, md: '172px' }}>
+                Handpenning
+              </FormLabel>
+              <HStack
+                spacing={2}
+                align="center"
+                position={{ base: 'static', md: 'absolute' }}
+                top="0"
+                right="0"
+                mb={{ base: 2, md: 0 }}
+              >
+                <Text fontSize="sm" fontWeight={downPaymentMode === 'amount' ? 'semibold' : 'medium'} color={downPaymentMode === 'amount' ? 'gray.900' : 'gray.600'}>
+                  Belopp
+                </Text>
+                <Switch
+                  id="down-payment-mode-switch"
+                  aria-label="Ange handpenning i procent"
+                  size="sm"
+                  colorScheme="blue"
+                  isChecked={downPaymentMode === 'percentage'}
+                  onChange={(e) => viewModel.onDownPaymentModeSwitchChange(e.target.checked)}
+                />
+                <Text fontSize="sm" fontWeight={downPaymentMode === 'percentage' ? 'semibold' : 'medium'} color={downPaymentMode === 'percentage' ? 'gray.900' : 'gray.600'}>
+                  Procent
+                </Text>
+              </HStack>
+              {downPaymentMode === 'percentage' ? (
+                <NumberInput
+                  value={Number.isFinite(viewModel.downPaymentPercent) ? Number(viewModel.downPaymentPercent.toFixed(1)) : 0}
+                  onChange={viewModel.onDownPaymentPercentChange}
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  clampValueOnBlur={false}
+                  keepWithinRange={false}
+                >
+                  <NumberInputField inputMode="decimal" />
+                </NumberInput>
+              ) : (
+                <Input
+                  value={viewModel.downPaymentFieldValue}
+                  onChange={(e) => viewModel.onDownPaymentInputChange(e.target.value)}
+                  inputMode="numeric"
+                />
+              )}
 
-          </FormControl>
+            </FormControl>
+          )}
         </Grid>
 
         <Grid templateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={4} alignItems="start">
@@ -202,6 +234,8 @@ export function InputPanel({
                 Auto
               </Text>
               <Switch
+                id="amortization-mode-switch"
+                aria-label="Ange amortering manuellt"
                 size="sm"
                 colorScheme="blue"
                 isChecked={!isMonthlyAmortizationAuto}
@@ -252,7 +286,9 @@ export function InputPanel({
         </Grid>
 
         <Text fontSize="xs" color="gray.500" mt={-2}>
-          Årsinkomst beräknas automatiskt som månadsinkomst × 12. Amortering kan inte vara lägre än amorteringskravet.
+          {isExistingLoan
+            ? 'Fyll i det du betalar idag. Auto räknar fram amorteringskravet för ett nytt lån; välj Manuell för att ange din faktiska amortering.'
+            : 'Årsinkomst beräknas automatiskt som månadsinkomst × 12. Amortering kan inte vara lägre än amorteringskravet.'}
         </Text>
 
         <MonthlyBudgetSection
@@ -268,8 +304,9 @@ export function InputPanel({
           selectedRateType={selectedRateType}
           onSelectedBankChange={onSelectedBankChange}
           onSelectedRateTypeChange={onSelectedRateTypeChange}
-          defaultInterestRate={6}
+          defaultInterestRate={3.5}
           amountToFinance={housePrice - downPayment}
+          loanMode={loanMode}
         />
 
         <Button colorScheme="gray" variant="outline" onClick={onReset} width="100%">

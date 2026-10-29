@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import {
   BANK_RATE_PRESETS,
+  CURRENT_POLICY_RATE_PERCENT,
+  getEffectiveRateForPortion,
   getEffectiveRatesByType,
   getRatesByType,
   type BankRateType,
@@ -75,10 +77,10 @@ const HISTORICAL_POLICY_SCENARIOS: HistoricalPolicyScenario[] = [
   },
   {
     id: 'normalisering-2026',
-    label: 'Normalisering 2026',
-    period: '2026-01 till 2026-03',
-    worldEvent: 'Räntesänkningar efter fallande inflation',
-    policyRate: 1.75,
+    label: 'Dagens nivå',
+    period: '2025-09 och framåt',
+    worldEvent: 'Styrräntan oförändrad efter sänkningarna 2024–2025',
+    policyRate: CURRENT_POLICY_RATE_PERCENT,
   },
 ]
 
@@ -173,9 +175,11 @@ export function useScenarioComparison({
   )
   const rateTypeLabel = selectedRateType === 'list' ? 'Listränta' : 'Snittränta'
 
+  // The portion's own rate is the truth: it already holds the bank rate when a bank
+  // is selected, and the user's real rate when they've entered one (e.g. existing loan).
   const getBaseRateForPortion = useCallback((portion: LoanPortion): number => {
-    return bankRatesByTerm[portion.termYears] ?? portion.interestRate
-  }, [bankRatesByTerm])
+    return portion.interestRate
+  }, [])
 
   const getAdjustedRateForPortion = useCallback((portion: LoanPortion): number => {
     const baseRate = getBaseRateForPortion(portion)
@@ -187,12 +191,8 @@ export function useScenarioComparison({
   }, [getBaseRateForPortion, rateShiftPercentPoints])
 
   const getBaseEffectiveRateForPortion = useCallback((portion: LoanPortion): number => {
-    return (
-      effectiveBankRatesByTerm[portion.termYears] ??
-      bankRatesByTerm[portion.termYears] ??
-      portion.interestRate
-    )
-  }, [effectiveBankRatesByTerm, bankRatesByTerm])
+    return getEffectiveRateForPortion(portion, selectedRateType)
+  }, [selectedRateType])
 
   const getAdjustedEffectiveRateForPortion = useCallback((portion: LoanPortion): number => {
     const baseEffectiveRate = getBaseEffectiveRateForPortion(portion)
@@ -362,7 +362,9 @@ export function useScenarioComparison({
     }
 
     return HISTORICAL_POLICY_SCENARIOS.map((scenario) => {
-      const deltaPercentPoints = scenario.policyRate - currentThreeMonthRate
+      // Mortgage rates follow the policy rate plus the bank's margin, so shift the
+      // rate by how much the policy rate differed from today's.
+      const deltaPercentPoints = scenario.policyRate - CURRENT_POLICY_RATE_PERCENT
 
       const monthlyInterestSeK = loanPortions.reduce((sum, portion) => {
         const baseRate = getBaseRateForPortion(portion)

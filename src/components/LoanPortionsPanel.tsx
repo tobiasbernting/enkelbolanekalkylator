@@ -17,13 +17,15 @@ import {
   Heading,
   useBreakpointValue,
 } from '@chakra-ui/react';
+import { useState } from 'react';
 import { LoanPortion } from '../utils/calculations';
 import {
   BANK_RATE_PRESETS,
   BankRateType,
-  getEffectiveRatesByType,
+  getEffectiveRateForPortion,
   getRatesByType,
 } from '../data/bankRates';
+import type { LoanMode } from '../hooks/useMortgageState';
 
 interface LoanPortionsPanelProps {
   portions: LoanPortion[];
@@ -34,6 +36,36 @@ interface LoanPortionsPanelProps {
   onSelectedRateTypeChange: (rateType: BankRateType) => void;
   defaultInterestRate: number;
   amountToFinance: number;
+  loanMode?: LoanMode;
+}
+
+interface RateInputProps {
+  value: number;
+  onChange: (value: number) => void;
+  size: 'sm' | 'md';
+}
+
+// Text input (not type="number") so Swedish decimal commas and partial input like "3," work.
+function RateInput({ value, onChange, size }: RateInputProps) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const displayValue = draft ?? (value ? String(value).replace('.', ',') : '');
+
+  return (
+    <Input
+      value={displayValue}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const parsed = Number(e.target.value.replace(/\s/g, '').replace(',', '.'));
+        if (Number.isFinite(parsed)) {
+          onChange(Math.max(0, parsed));
+        }
+      }}
+      onBlur={() => setDraft(null)}
+      placeholder="3,5"
+      size={size}
+      inputMode="decimal"
+    />
+  );
 }
 
 const TERM_OPTIONS = [
@@ -58,17 +90,12 @@ export function LoanPortionsPanel({
   onSelectedBankChange,
   onSelectedRateTypeChange,
   defaultInterestRate, 
-  amountToFinance 
+  amountToFinance,
+  loanMode = 'new',
 }: LoanPortionsPanelProps) {
   const isMobile = useBreakpointValue({ base: true, md: false }) ?? false;
   const selectedPreset = BANK_RATE_PRESETS.find((preset) => preset.id === selectedBank);
   const totalAmount = portions.reduce((sum, p) => sum + p.amountSeK, 0);
-
-  const nominalToEffectiveAnnualRate = (nominalRatePercent: number): number => {
-    const nominal = nominalRatePercent / 100;
-    const effective = Math.pow(1 + nominal / 12, 12) - 1;
-    return effective * 100;
-  };
 
   const normalizeBankId = (bankId: string | undefined): string | undefined => {
     if (bankId && BANK_RATE_PRESETS.some((preset) => preset.id === bankId)) {
@@ -107,23 +134,6 @@ export function LoanPortionsPanel({
   const getDefaultRateForBankTerm = (bankId: string, termYears: number): number => {
     const ratesByTerm = getRatesForBank(bankId, selectedRateType);
     return ratesByTerm[termYears] ?? defaultInterestRate;
-  };
-
-  const getEffectiveRateForBankTerm = (bankId: string, termYears: number): number => {
-    const normalizedBankId = normalizeBankId(bankId);
-    if (!normalizedBankId) {
-      const portion = portions.find((item) => item.bankId === bankId && item.termYears === termYears);
-      return nominalToEffectiveAnnualRate(portion?.interestRate ?? defaultInterestRate);
-    }
-
-    const preset = BANK_RATE_PRESETS.find((item) => item.id === normalizedBankId);
-    if (!preset) {
-      return nominalToEffectiveAnnualRate(defaultInterestRate);
-    }
-
-    const effectiveRatesByTerm = getEffectiveRatesByType(preset, selectedRateType);
-    const nominalRatesByTerm = getRatesByType(preset, selectedRateType);
-    return effectiveRatesByTerm[termYears] ?? nominalRatesByTerm[termYears] ?? defaultInterestRate;
   };
 
   const formatIntegerWithSpaces = (value: number): string => {
@@ -174,7 +184,8 @@ export function LoanPortionsPanel({
 
       const updatedPortion = { ...p, [field]: value, bankId: selectedBank } as LoanPortion;
 
-      if (field === 'termYears' && selectedPreset) {
+      // For an existing loan the entered rate is the real one; don't overwrite it.
+      if (field === 'termYears' && selectedPreset && loanMode !== 'existing') {
         const ratesForBank = getRatesForBank(selectedBank, selectedRateType);
         const rateForSelectedTerm = ratesForBank[value];
         if (rateForSelectedTerm !== undefined) {
@@ -280,9 +291,11 @@ export function LoanPortionsPanel({
         <Box bg="whiteAlpha.700" borderWidth={1} borderColor="gray.200" p={3} borderRadius="md">
           <HStack justify="space-between" flexWrap="wrap" gap={2}>
             <Text fontSize="sm" color="gray.600">
-              {selectedPreset
-                ? 'Välj en bank och räntetyp. Alla låneportioner följer samma bank för jämförelse mellan banker.'
-                : 'Ingen bank vald: räntor sätts manuellt per låneportion.'}
+              {loanMode === 'existing'
+                ? 'Lägg in dina lånedelar som de ser ut idag, med räntan du faktiskt betalar. Välj "Ingen bank (egen ränta)" om du inte vill att bankens aktuella räntor fylls i.'
+                : selectedPreset
+                  ? 'Välj en bank och räntetyp. Alla låneportioner följer samma bank för jämförelse mellan banker.'
+                  : 'Ingen bank vald: räntor sätts manuellt per låneportion.'}
             </Text>
             {selectedPreset && (
               <Text fontSize="xs" color="gray.500" fontWeight="medium">
@@ -310,7 +323,7 @@ export function LoanPortionsPanel({
                   <Th minW="170px">Belopp (SEK)</Th>
                   <Th minW="140px">Ränta (%)</Th>
                   <Th minW="160px">Effektiv ränta (%)</Th>
-                  <Th minW="150px">Löptid</Th>
+                  <Th minW="150px">Bindningstid</Th>
                   <Th minW="110px"></Th>
                 </Tr>
               </Thead>
@@ -333,18 +346,15 @@ export function LoanPortionsPanel({
                       />
                     </Td>
                     <Td>
-                      <Input
-                        type="number"
-                        value={portion.interestRate || ''}
-                        onChange={(e) => updatePortionNumber(portion.id, 'interestRate', Number(e.target.value) || 0)}
-                        placeholder="6.0"
+                      <RateInput
+                        value={portion.interestRate}
+                        onChange={(value) => updatePortionNumber(portion.id, 'interestRate', value)}
                         size="md"
-                        step="0.1"
                       />
                     </Td>
                     <Td>
                       <Text fontWeight="semibold" color="gray.700">
-                        {getEffectiveRateForBankTerm(portion.bankId, portion.termYears).toFixed(2)}%
+                        {getEffectiveRateForPortion(portion, selectedRateType).toFixed(2)}%
                       </Text>
                     </Td>
                     <Td>
@@ -403,23 +413,20 @@ export function LoanPortionsPanel({
                   </Box>
                   <Box>
                     <Text fontSize="xs" color="gray.600" mb={1}>Ränta (%)</Text>
-                    <Input
-                      type="number"
-                      value={portion.interestRate || ''}
-                      onChange={(e) => updatePortionNumber(portion.id, 'interestRate', Number(e.target.value) || 0)}
-                      placeholder="6.0"
+                    <RateInput
+                      value={portion.interestRate}
+                      onChange={(value) => updatePortionNumber(portion.id, 'interestRate', value)}
                       size="sm"
-                      step="0.1"
                     />
                   </Box>
                   <Box>
                     <Text fontSize="xs" color="gray.600" mb={1}>Effektiv ränta</Text>
                     <Text fontWeight="semibold" color="gray.700">
-                      {getEffectiveRateForBankTerm(portion.bankId, portion.termYears).toFixed(2)}%
+                      {getEffectiveRateForPortion(portion, selectedRateType).toFixed(2)}%
                     </Text>
                   </Box>
                   <Box>
-                    <Text fontSize="xs" color="gray.600" mb={1}>Löptid</Text>
+                    <Text fontSize="xs" color="gray.600" mb={1}>Bindningstid</Text>
                     <Select
                       value={portion.termYears}
                       onChange={(e) => updatePortionNumber(portion.id, 'termYears', Number(e.target.value))}

@@ -21,4 +21,14 @@ describe('BCT: amortization rules', () => {
     const rate = calculateRequiredAmortizationRate(800000, 1000000, 0)
     expect(rate).toBe(0.02)
   })
+
+  it('requires no amortization at exactly 50% belaningsgrad', () => {
+    const rate = calculateRequiredAmortizationRate(500000, 1000000, 300000)
+    expect(rate).toBe(0)
+  })
+
+  it('applies 1% at exactly 70% belaningsgrad', () => {
+    const rate = calculateRequiredAmortizationRate(700000, 1000000, 300000)
+    expect(rate).toBe(0.01)
+  })
 })

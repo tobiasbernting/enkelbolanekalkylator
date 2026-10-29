@@ -17,7 +17,7 @@ export function getRatesByType(
   return rateType === 'list' ? preset.listRatesByTerm : preset.averageRatesByTerm;
 }
 
-function nominalToEffectiveAnnualRate(nominalRatePercent: number): number {
+export function nominalToEffectiveAnnualRate(nominalRatePercent: number): number {
   const nominal = nominalRatePercent / 100;
   const effective = Math.pow(1 + nominal / 12, 12) - 1;
   return effective * 100;
@@ -51,6 +51,36 @@ export function getEffectiveRatesByType(
 
   return deriveEffectiveRatesFromNominal(preset.averageRatesByTerm);
 }
+
+const RATE_MATCH_TOLERANCE = 1e-6;
+
+/**
+ * Effective annual rate for a loan portion. The bank's published effective rate is
+ * only used when the portion still has the bank's nominal rate for its term; a
+ * custom rate (e.g. an existing loan) is converted with monthly compounding.
+ */
+export function getEffectiveRateForPortion(
+  portion: { bankId: string; termYears: number; interestRate: number },
+  rateType: BankRateType
+): number {
+  const preset = BANK_RATE_PRESETS.find((item) => item.id === portion.bankId);
+  if (preset) {
+    const nominalRate = getRatesByType(preset, rateType)[portion.termYears];
+    const effectiveRate = getEffectiveRatesByType(preset, rateType)[portion.termYears];
+    if (
+      nominalRate !== undefined &&
+      effectiveRate !== undefined &&
+      Math.abs(nominalRate - portion.interestRate) < RATE_MATCH_TOLERANCE
+    ) {
+      return effectiveRate;
+    }
+  }
+
+  return nominalToEffectiveAnnualRate(portion.interestRate);
+}
+
+/** Riksbankens styrränta, senast ändrad 2025-09 (se styrrantan-effektiv.xlsx). */
+export const CURRENT_POLICY_RATE_PERCENT = 1.75;
 
 export const BANK_RATE_PRESETS: BankRatePreset[] = [
   {

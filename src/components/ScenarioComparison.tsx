@@ -21,7 +21,7 @@ import {
   useBreakpointValue,
 } from '@chakra-ui/react'
 import { formatCurrency, LoanPortion } from '../utils/calculations'
-import { BankRateType } from '../data/bankRates'
+import { BankRateType, CURRENT_POLICY_RATE_PERCENT } from '../data/bankRates'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 
 interface ScenarioComparisonProps {
@@ -270,6 +270,9 @@ export function ScenarioComparison({
           <Text fontSize="sm" fontWeight="semibold" mb={2}>
             Historiska scenarier kopplat till världshändelser
           </Text>
+          <Text fontSize="xs" color="gray.500" mb={2}>
+            Din 3-månadersränta flyttas lika mycket som styrräntan skilde sig från dagens nivå ({CURRENT_POLICY_RATE_PERCENT.toFixed(2)}%).
+          </Text>
           {viewModel.historicalScenarios.length === 0 ? (
             <Text fontSize="sm" color="gray.500">
               Inget 3-månaderslån finns i upplägget, så historiska rörliga scenarier kan inte beräknas.
@@ -282,7 +285,7 @@ export function ScenarioComparison({
                     <Th>Scenario</Th>
                     <Th>Världshändelse</Th>
                     <Th isNumeric>Styrränta</Th>
-                    <Th isNumeric>Förändring mot nuvarande 3 mån</Th>
+                    <Th isNumeric>Förändring mot dagens styrränta</Th>
                     <Th isNumeric>Nominell månadskostnad</Th>
                     <Th isNumeric>Effektiv månadskostnad</Th>
                     <Th isNumeric>Skillnad mot nu (effektiv)</Th>

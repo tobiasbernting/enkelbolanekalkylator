@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import type { DownPaymentMode } from './useMortgageState'
+import type { DownPaymentMode, LoanMode } from './useMortgageState'
 
 interface UseInputPanelStateParams {
+  loanMode?: LoanMode
   housePrice: number
   downPayment: number
   monthlyIncome: number
@@ -27,6 +28,9 @@ export interface InputPanelViewModel {
   downPaymentFieldValue: string
   monthlyAmortizationFieldValue: string
   monthlyOperatingCostFieldValue: string
+  currentLoanFieldValue: string
+  isLoanAboveHouseValue: boolean
+  onCurrentLoanInputChange: (value: string) => void
   onHousePriceInputChange: (value: string) => void
   onDownPaymentInputChange: (value: string) => void
   onMonthlyIncomeInputChange: (value: string) => void
@@ -55,6 +59,7 @@ function formatIntegerWithSpaces(value: number): string {
 }
 
 export function useInputPanelState({
+  loanMode = 'new',
   housePrice,
   downPayment,
   monthlyIncome,
@@ -78,7 +83,13 @@ export function useInputPanelState({
   )
 
   const isAmortizationBelowMinimum =
-    amortizationTouched && monthlyAmortization < minimumMonthlyAmortization
+    (amortizationTouched || !isMonthlyAmortizationAuto) &&
+    monthlyAmortization < minimumMonthlyAmortization
+
+  // For an existing loan the user enters the remaining debt; it is stored as
+  // value - debt in downPayment so the rest of the pipeline stays unchanged.
+  const currentLoan = Math.max(0, housePrice - downPayment)
+  const isLoanAboveHouseValue = loanMode === 'existing' && downPayment < 0
 
   return {
     downPaymentPercent,
@@ -89,7 +100,19 @@ export function useInputPanelState({
     downPaymentFieldValue: formatIntegerWithSpaces(downPayment),
     monthlyAmortizationFieldValue: formatIntegerWithSpaces(monthlyAmortization),
     monthlyOperatingCostFieldValue: formatIntegerWithSpaces(monthlyOperatingCost),
-    onHousePriceInputChange: (value) => onHousePriceChange(parseFormattedNumber(value)),
+    currentLoanFieldValue: formatIntegerWithSpaces(currentLoan),
+    isLoanAboveHouseValue,
+    onCurrentLoanInputChange: (value) =>
+      onDownPaymentChange(housePrice - parseFormattedNumber(value)),
+    onHousePriceInputChange: (value) => {
+      const nextHousePrice = parseFormattedNumber(value)
+      onHousePriceChange(nextHousePrice)
+      if (loanMode === 'existing') {
+        // Keep the remaining debt fixed when the property value changes. This may be
+        // negative while typing; the form shows a validation message until it is not.
+        onDownPaymentChange(nextHousePrice - currentLoan)
+      }
+    },
     onDownPaymentInputChange: (value) => onDownPaymentChange(parseFormattedNumber(value)),
     onMonthlyIncomeInputChange: (value) => onMonthlyIncomeChange(parseFormattedNumber(value)),
     onMonthlyAmortizationInputChange: (value) => {
