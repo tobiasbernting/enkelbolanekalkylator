@@ -22,6 +22,8 @@ export interface MortgageState {
   downPaymentMode: DownPaymentMode
   loanPortions: LoanPortion[]
   monthlyBudgetItems: MonthlyBudgetItem[]
+  /** What-if change applied to every portion's rate, in percentage points. */
+  rateChange: number
 }
 
 export interface MortgageStateActions {
@@ -39,6 +41,7 @@ export interface MortgageStateActions {
   setDownPaymentMode: (value: DownPaymentMode) => void
   setLoanPortions: (value: LoanPortion[]) => void
   setMonthlyBudgetItems: (value: MonthlyBudgetItem[]) => void
+  setRateChange: (value: number) => void
   reset: () => void
 }
 
@@ -218,6 +221,7 @@ function getInitialStateFromQuery(): MortgageState {
     downPaymentMode: parseDownPaymentModeParam(params.get('downPaymentMode')),
     loanPortions: parseLoanPortionsParam(params.get('loanPortions'), selectedBank),
     monthlyBudgetItems: parseMonthlyBudgetItemsParam(params.get('monthlyBudgetItems')),
+    rateChange: parseNumberParam(params.get('rateChange'), 0),
   }
 }
 
@@ -253,6 +257,12 @@ export function buildMortgageSearchParams(
     params.delete('monthlyBudgetItems')
   }
 
+  if (state.rateChange !== 0) {
+    params.set('rateChange', String(state.rateChange))
+  } else {
+    params.delete('rateChange')
+  }
+
   return params
 }
 
@@ -278,6 +288,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
   const [monthlyBudgetItems, setMonthlyBudgetItems] = useState<MonthlyBudgetItem[]>(
     initialState.monthlyBudgetItems
   )
+  const [rateChange, setRateChange] = useState(initialState.rateChange)
 
   useEffect(() => {
     const targetAmountSeK = housePrice - downPayment
@@ -309,6 +320,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
         downPaymentMode,
         loanPortions,
         monthlyBudgetItems,
+        rateChange,
       },
       new URLSearchParams(window.location.search)
     )
@@ -339,6 +351,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     downPaymentMode,
     loanPortions,
     monthlyBudgetItems,
+    rateChange,
     isTestEnvironment,
   ])
 
@@ -357,6 +370,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     setDownPaymentMode('amount')
     setLoanPortions([])
     setMonthlyBudgetItems([])
+    setRateChange(0)
   }, [])
 
   return {
@@ -375,6 +389,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       downPaymentMode,
       loanPortions,
       monthlyBudgetItems,
+      rateChange,
     },
     actions: {
       setLoanMode,
@@ -391,6 +406,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       setDownPaymentMode,
       setLoanPortions,
       setMonthlyBudgetItems,
+      setRateChange,
       reset,
     },
   }

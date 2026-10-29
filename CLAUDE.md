@@ -47,13 +47,20 @@ useMortgageState (state + URL sync)
 useMortgageCalculations (all derived numbers, memoized)
     ├── effectivePortions — loan portions, or a synthesized single portion if none set
     ├── loanCalculation — from calculateMultipleLoans() in utils/calculations.ts
-    ├── perBankSummary — re-runs calculations for all banks in BANK_RATE_PRESETS
-    └── amortizationSchedule — combined schedule via generateCombinedAmortizationSchedule()
+    ├── perBankSummary — re-runs calculations for all banks in BANK_RATE_PRESETS (ignores rateChange)
+    ├── projection — month-by-month plan via projectMortgage() with the chosen amortization and rateChange
+    └── baselineProjection — amorteringskravet at today's rates, used to show what a change does
 ```
+
+`projection` is the single source for the results page: the key figures, the belåningsgrad chart, the yearly table and the first month's amortization (`effectiveMonthlyAmortization`) all read from it, so changing amortering or ränta in the plan controls updates everything at once. In "auto" amortization mode the plan follows amorteringskravet and steps down from 2% to 1% to 0% as the loan passes 70% and 50% (the percentage applies to the debt the requirement was set on, not the shrinking balance); in "manual" mode it pays a fixed amount (never below the requirement for new loans). The property value is held constant.
 
 Rates shown for the user's own loan (nominal, effective, ränteavdrag) come from the portions' `interestRate`, so custom rates are respected; bank presets are only used for the bank comparison. `getEffectiveRateForPortion()` in `bankRates.ts` uses the bank's published effective rate when the portion still has the bank's nominal rate, otherwise monthly compounding.
 
-The "Vad händer om…?" panel (`WhatIfPanel` / `useWhatIfView`) uses `calculateWhatIf()` to compare today's cost against a rate change (all portions) and/or new monthly amortization.
+`rateChange` (URL param, only written when non-zero) is a what-if shift in percentage points applied to every portion via `applyRateChange()`.
+
+### Results page layout
+
+`App.tsx`: header → collapsible "Dina uppgifter" (the full `InputPanel`) → `PlanControls` (sticky on wide screens) beside `PlanOverview` (key figures and milestone dates) and `LoanToValueChart` (inline SVG, no chart library) → tabs: Amorteringsplan, Månadskostnad (`SummaryCard`), Jämför banker, Scenarioanalys. On small screens `PlanStickySummary` pins the monthly payment and the 70% date to the bottom while the user adjusts the plan.
 
 The core math lives in `src/utils/calculations.ts`. Bank interest rate data (nominal + effective, by term) is in `src/data/bankRates.ts` as `BANK_RATE_PRESETS`.
 
@@ -75,7 +82,9 @@ Components are thin presentational wrappers. Each has a corresponding view hook 
 - `SummaryCard` / `useSummaryCardView`
 - `BankComparisonSection` / `useBankComparisonView`
 - `AmortizationSchedule` / `useAmortizationScheduleView`
-- `WhatIfPanel` / `useWhatIfView`
+- `PlanControls` / `usePlanControlsView`
+- `PlanOverview` and `PlanStickySummary` / `usePlanOverviewView`
+- `LoanToValueChart` / `useLoanToValueChartView`
 
 `InputPanel` contains the full form including `LoanPortionsPanel` for managing loan splits.
 

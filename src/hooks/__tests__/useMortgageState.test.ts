@@ -171,4 +171,19 @@ describe('useMortgageState', () => {
     })
     expect(result.current.state.loanMode).toBe('existing')
   })
+
+  it('keeps the rate change in the URL only when it is not zero', async () => {
+    window.history.replaceState({}, '', '/?rateChange=1.5')
+
+    const { result } = renderHook(() => useMortgageState())
+    expect(result.current.state.rateChange).toBe(1.5)
+
+    act(() => {
+      result.current.actions.setRateChange(0)
+    })
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).has('rateChange')).toBe(false)
+    })
+  })
 })

@@ -10,12 +10,13 @@ import type { BankComparisonRow } from '../types/bankComparison'
 import type { MonthlyBudgetItem } from '../types/monthlyBudget'
 import type { LoanMode } from './useMortgageState'
 import {
+  applyRateChange,
   calculateMultipleLoans,
   calculateRequiredAmortizationRate,
   calculateYearlyInterestDeduction,
-  generateCombinedAmortizationSchedule,
-  type AmortizationRow,
+  projectMortgage,
   type LoanPortion,
+  type MortgageProjection,
 } from '../utils/calculations'
 
 interface UseMortgageCalculationsParams {
@@ -31,6 +32,8 @@ interface UseMortgageCalculationsParams {
   loanPortions: LoanPortion[]
   loanMode?: LoanMode
   isMonthlyAmortizationUserSet?: boolean
+  /** What-if change on every portion's rate, in percentage points. */
+  rateChangePercentPoints?: number
 }
 
 interface MortgageLoanCalculation {
@@ -44,6 +47,7 @@ interface MortgageLoanCalculation {
 
 interface UseMortgageCalculationsResult {
   annualIncome: number
+  /** The loan as entered, with the what-if rate change applied. */
   effectivePortions: LoanPortion[]
   loanCalculation: MortgageLoanCalculation
   requiredLoanAmountForRules: number
@@ -64,7 +68,10 @@ interface UseMortgageCalculationsResult {
   selectedEffectiveMonthlyCostSeK: number
   selectedEffectiveYearlyCostSeK: number
   perBankSummary: BankComparisonRow[]
-  amortizationSchedule: AmortizationRow[]
+  /** Month-by-month plan with the chosen amortization and rate change. */
+  projection: MortgageProjection
+  /** Reference plan: amorteringskravet at today's rates, used to show what a change does. */
+  baselineProjection: MortgageProjection
 }
 
 export function useMortgageCalculations({
@@ -80,10 +87,11 @@ export function useMortgageCalculations({
   loanPortions,
   loanMode = 'new',
   isMonthlyAmortizationUserSet = false,
+  rateChangePercentPoints = 0,
 }: UseMortgageCalculationsParams): UseMortgageCalculationsResult {
   const annualIncome = useMemo(() => monthlyIncome * 12, [monthlyIncome])
 
-  const effectivePortions = useMemo(() => {
+  const basePortions = useMemo(() => {
     if (loanPortions.length > 0) {
       return loanPortions
     }
@@ -113,6 +121,11 @@ export function useMortgageCalculations({
       },
     ]
   }, [loanPortions, housePrice, downPayment, selectedBank, selectedRateType])
+
+  const effectivePortions = useMemo(
+    () => applyRateChange(basePortions, rateChangePercentPoints),
+    [basePortions, rateChangePercentPoints]
+  )
 
   const loanCalculation = useMemo(() => {
     const multiLoan = calculateMultipleLoans(housePrice, downPayment, effectivePortions)
@@ -165,13 +178,50 @@ export function useMortgageCalculations({
   // A new loan must follow amorteringskravet. An existing loan may legitimately
   // amortize less (e.g. loans from before 2016, or a requirement based on an older
   // valuation), so a manually entered amount is used as is.
-  const effectiveMonthlyAmortization = useMemo(
+  const projection = useMemo(
     () =>
-      loanMode === 'existing' && isMonthlyAmortizationUserSet
-        ? Math.max(0, monthlyAmortization)
-        : Math.max(requiredMonthlyAmortization, monthlyAmortization),
-    [loanMode, isMonthlyAmortizationUserSet, requiredMonthlyAmortization, monthlyAmortization]
+      projectMortgage({
+        portions: effectivePortions,
+        housePriceSeK: housePrice,
+        amortizationMode: isMonthlyAmortizationUserSet ? 'fixed' : 'requirement',
+        fixedMonthlyAmortizationSeK: monthlyAmortization,
+        enforceRequirement: loanMode !== 'existing',
+        amortizationBasisSeK: requiredLoanAmountForRules,
+      }),
+    [
+      effectivePortions,
+      housePrice,
+      isMonthlyAmortizationUserSet,
+      monthlyAmortization,
+      loanMode,
+      requiredLoanAmountForRules,
+    ]
   )
+
+  const baselineProjection = useMemo(
+    () =>
+      projectMortgage({
+        portions: basePortions,
+        housePriceSeK: housePrice,
+        amortizationMode: 'requirement',
+        fixedMonthlyAmortizationSeK: 0,
+        enforceRequirement: true,
+        amortizationBasisSeK: requiredLoanAmountForRules,
+      }),
+    [basePortions, housePrice, requiredLoanAmountForRules]
+  )
+
+  // The first month of the plan is what you pay now, so every view shows the same number.
+  const effectiveMonthlyAmortization = useMemo(() => {
+    const firstMonth = projection.months[0]
+    if (firstMonth) {
+      return firstMonth.amortizationSeK
+    }
+
+    return loanMode === 'existing' && isMonthlyAmortizationUserSet
+      ? Math.max(0, monthlyAmortization)
+      : Math.max(requiredMonthlyAmortization, monthlyAmortization)
+  }, [projection, loanMode, isMonthlyAmortizationUserSet, requiredMonthlyAmortization, monthlyAmortization])
 
   const monthlyBudgetCostSeK = useMemo(
     () =>
@@ -193,19 +243,19 @@ export function useMortgageCalculations({
   )
 
   const perBankSummary = useMemo(() => {
-    if (effectivePortions.length === 0) {
+    if (basePortions.length === 0) {
       return []
     }
 
     const comparisons = BANK_RATE_PRESETS.map((bank) => {
       const ratesByTerm = getRatesByType(bank, selectedRateType)
       const effectiveRatesByTerm = getEffectiveRatesByType(bank, selectedRateType)
-      const bankPortions = effectivePortions.map((portion) => ({
+      const bankPortions = basePortions.map((portion) => ({
         ...portion,
         interestRate: ratesByTerm[portion.termYears] ?? portion.interestRate,
       }))
 
-      const bankEffectivePortions = effectivePortions.map((portion) => ({
+      const bankEffectivePortions = basePortions.map((portion) => ({
         ...portion,
         interestRate: effectiveRatesByTerm[portion.termYears] ?? ratesByTerm[portion.termYears] ?? portion.interestRate,
       }))
@@ -280,7 +330,7 @@ export function useMortgageCalculations({
 
     return comparisons.sort((a, b) => a.monthlyInterestSeK - b.monthlyInterestSeK)
   }, [
-    effectivePortions,
+    basePortions,
     selectedRateType,
     housePrice,
     downPayment,
@@ -289,17 +339,6 @@ export function useMortgageCalculations({
     monthlyOperatingCost,
     monthlyBudgetCostSeK,
   ])
-
-  const amortizationSchedule = useMemo(
-    () =>
-      generateCombinedAmortizationSchedule(
-        effectivePortions,
-        housePrice,
-        80,
-        effectiveMonthlyAmortization
-      ),
-    [effectivePortions, housePrice, effectiveMonthlyAmortization]
-  )
 
   // Rates shown for "your" loan come from the portions themselves, so custom rates
   // (e.g. an existing loan) are respected instead of being replaced by bank presets.
@@ -328,19 +367,8 @@ export function useMortgageCalculations({
     monthlyOperatingCost +
     monthlyBudgetCostSeK
 
-  const estimatedYearlyInterestSeK = useMemo(() => {
-    const openingDebt = Math.max(0, loanCalculation.loanAmountSeK)
-    const monthlyAmortizationSeK = Math.max(0, effectiveMonthlyAmortization)
-    const monthlyRate = Math.max(0, selectedNominalRatePercent) / 100 / 12
-
-    let annualInterestSeK = 0
-    for (let month = 0; month < 12; month += 1) {
-      const monthOpeningDebt = Math.max(0, openingDebt - month * monthlyAmortizationSeK)
-      annualInterestSeK += monthOpeningDebt * monthlyRate
-    }
-
-    return annualInterestSeK
-  }, [loanCalculation.loanAmountSeK, effectiveMonthlyAmortization, selectedNominalRatePercent])
+  // Ränteavdraget räknas på det första årets ränta i planen.
+  const estimatedYearlyInterestSeK = projection.years[0]?.interestSeK ?? 0
 
   const selectedYearlyInterestDeductionSeK = useMemo(
     () => calculateYearlyInterestDeduction(estimatedYearlyInterestSeK, numberOfBorrowers),
@@ -379,6 +407,7 @@ export function useMortgageCalculations({
     selectedEffectiveMonthlyCostSeK,
     selectedEffectiveYearlyCostSeK,
     perBankSummary,
-    amortizationSchedule,
+    projection,
+    baselineProjection,
   }
 }

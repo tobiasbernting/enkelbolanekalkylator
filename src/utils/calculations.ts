@@ -226,118 +226,6 @@ export function generateAmortizationSchedule(
 }
 
 /**
- * Generate combined amortization schedule for multiple loan portions
- */
-export function generateCombinedAmortizationSchedule(
-  portions: LoanPortion[],
-  housePriceSeK: number,
-  maxProjectionYears = 120,
-  minimumMonthlyAmortizationSeK = 0
-): AmortizationRow[] {
-  const schedule: AmortizationRow[] = [];
-
-  if (portions.length === 0) {
-    return schedule;
-  }
-
-  // Initialize portion states
-  const portionStates = portions.map(portion => ({
-    ...portion,
-    remainingBalance: portion.amountSeK,
-    monthlyRate: portion.interestRate / 100 / 12,
-  }));
-
-  let paymentNumber = 0;
-
-  for (let year = 1; year <= maxProjectionYears; year++) {
-    let annualInterest = 0;
-    let annualPrincipal = 0;
-    let annualPayment = 0;
-
-    for (let month = 0; month < 12; month++) {
-      paymentNumber++;
-      let monthlyPayment = 0;
-      let monthlyInterest = 0;
-      let monthlyPrincipal = 0;
-
-      // Calculate payments for active portions
-      const activePortions = portionStates.filter(
-        (state) => state.remainingBalance > 0
-      );
-
-      const totalActiveBalance = activePortions.reduce(
-        (sum, state) => sum + state.remainingBalance,
-        0
-      );
-
-      const requiredRateThisMonth = calculateRequiredAmortizationRate(
-        totalActiveBalance,
-        housePriceSeK
-      );
-      const requiredMonthlyAmortizationSeK =
-        Math.max(
-          (totalActiveBalance * requiredRateThisMonth) / 12,
-          minimumMonthlyAmortizationSeK
-        );
-
-      activePortions.forEach((state, index) => {
-        const interestPayment = state.remainingBalance * state.monthlyRate;
-
-        let amortizationPayment = 0;
-        if (requiredMonthlyAmortizationSeK > 0 && totalActiveBalance > 0) {
-          if (index === activePortions.length - 1) {
-            const allocatedSoFar = activePortions
-              .slice(0, -1)
-              .reduce((sum, s) => sum + (requiredMonthlyAmortizationSeK * s.remainingBalance) / totalActiveBalance, 0);
-            amortizationPayment = Math.max(0, requiredMonthlyAmortizationSeK - allocatedSoFar);
-          } else {
-            amortizationPayment = (requiredMonthlyAmortizationSeK * state.remainingBalance) / totalActiveBalance;
-          }
-        }
-
-        const principalPayment = Math.min(amortizationPayment, state.remainingBalance);
-
-        monthlyInterest += interestPayment;
-        monthlyPrincipal += principalPayment;
-        monthlyPayment += interestPayment + principalPayment;
-        state.remainingBalance -= principalPayment;
-
-        // Ensure balance doesn't go negative
-        if (state.remainingBalance < 0) {
-          state.remainingBalance = 0;
-        }
-      });
-
-      annualInterest += monthlyInterest;
-      annualPrincipal += monthlyPrincipal;
-      annualPayment += monthlyPayment;
-    }
-
-    // Only add year if there were payments
-    if (annualPayment > 0) {
-      schedule.push({
-        period: year,
-        paymentNumber: paymentNumber,
-        monthlyPaymentSeK: annualPayment / 12,
-        annualPaymentSeK: annualPayment,
-        principalSeK: annualPrincipal / 12,
-        annualPrincipalSeK: annualPrincipal,
-        interestSeK: annualInterest / 12,
-        annualInterestSeK: annualInterest,
-        remainingBalanceSeK: portionStates.reduce((sum, p) => sum + p.remainingBalance, 0),
-      });
-
-      const totalRemainingBalance = portionStates.reduce((sum, p) => sum + p.remainingBalance, 0);
-      if (totalRemainingBalance <= 0) {
-        break;
-      }
-    }
-  }
-
-  return schedule;
-}
-
-/**
  * Generate scenario matrix for comparison
  */
 export interface ScenarioResult {
@@ -388,101 +276,195 @@ export function calculateYearlyInterestDeduction(
 }
 
 /**
- * What-if analysis for a loan: compares today's monthly cost with the cost after
- * a change in interest rate and/or monthly amortization.
+ * Month-by-month projection of a mortgage with straight amortization.
+ *
+ * Amortization per month depends on the mode:
+ * - 'requirement': exactly amorteringskravet, recalculated each month from the current
+ *   belåningsgrad, so it steps down from 2% to 1% to 0% as the loan passes 70% and 50%.
+ *   Like the banks, the percentage applies to the amortization basis (the debt when the
+ *   requirement was set), not to the shrinking balance.
+ * - 'fixed': the chosen amount every month. When `enforceRequirement` is true (new loans)
+ *   it is never lower than the requirement for that month.
+ *
+ * The property value is held constant and interest uses the loan's weighted average rate,
+ * which stays constant because amortization is split across portions by their balance.
  */
-export interface WhatIfInput {
+export type AmortizationPlanMode = 'requirement' | 'fixed';
+
+export interface ProjectionInput {
   portions: LoanPortion[];
-  rateChangePercentPoints: number;
-  currentMonthlyAmortizationSeK: number;
-  newMonthlyAmortizationSeK: number;
-  numberOfBorrowers: 1 | 2;
+  housePriceSeK: number;
+  amortizationMode: AmortizationPlanMode;
+  fixedMonthlyAmortizationSeK: number;
+  enforceRequirement: boolean;
+  /** Debt the requirement percentage is applied to. Defaults to the sum of the portions. */
+  amortizationBasisSeK?: number;
+  maxMonths?: number;
 }
 
-export interface WhatIfSide {
-  loanAmountSeK: number;
+export interface ProjectionMonth {
+  /** 1 = the first payment. */
+  month: number;
+  openingBalanceSeK: number;
+  interestSeK: number;
+  amortizationSeK: number;
+  paymentSeK: number;
+  closingBalanceSeK: number;
+  /** Belåningsgrad after this month's payment, 0-1. */
+  closingLoanToValue: number;
+  requiredRate: number;
+}
+
+export interface ProjectionYear {
+  /** 1 = the first twelve payments. */
+  year: number;
+  interestSeK: number;
+  amortizationSeK: number;
+  paymentSeK: number;
+  /** Payment in the year's first month, i.e. what you pay per month at the start of the year. */
+  firstMonthPaymentSeK: number;
+  closingBalanceSeK: number;
+  closingLoanToValue: number;
+  requiredRate: number;
+  milestones: LoanToValueMilestone[];
+}
+
+export type LoanToValueMilestone = 'below70' | 'below50' | 'debtFree';
+
+export interface MortgageProjection {
+  initialBalanceSeK: number;
+  initialLoanToValue: number;
   averageRatePercent: number;
-  monthlyInterestSeK: number;
-  monthlyAmortizationSeK: number;
-  monthlyPaymentSeK: number;
-  monthlyInterestDeductionSeK: number;
-  monthlyNetPaymentSeK: number;
-  monthsToDebtFree: number | null;
-  totalInterestUntilDebtFreeSeK: number | null;
+  months: ProjectionMonth[];
+  years: ProjectionYear[];
+  /** Month number (1-based) when each milestone is reached; 0 = already reached; null = not within the projection. */
+  milestoneMonths: Record<LoanToValueMilestone, number | null>;
+  totalInterestSeK: number;
+  /** True when the loan is not paid off within maxMonths. */
+  isTruncated: boolean;
 }
 
-export interface WhatIfResult {
-  current: WhatIfSide;
-  scenario: WhatIfSide;
-  monthlyPaymentDeltaSeK: number;
-  monthlyNetPaymentDeltaSeK: number;
-  yearlyNetPaymentDeltaSeK: number;
-}
+const LTV_EPSILON = 1e-9;
+const BALANCE_EPSILON_SEK = 0.005;
 
-function calculateWhatIfSide(
-  portions: LoanPortion[],
-  rateChangePercentPoints: number,
-  monthlyAmortizationSeK: number,
-  numberOfBorrowers: 1 | 2
-): WhatIfSide {
-  const loanAmountSeK = portions.reduce((sum, p) => sum + Math.max(0, p.amountSeK), 0);
-  const monthlyInterestSeK = portions.reduce(
-    (sum, p) =>
-      sum + (Math.max(0, p.amountSeK) * Math.max(0, p.interestRate + rateChangePercentPoints)) / 100 / 12,
-    0
-  );
-  const averageRatePercent = loanAmountSeK > 0 ? (monthlyInterestSeK * 12 * 100) / loanAmountSeK : 0;
-  const amortizationSeK = Math.min(Math.max(0, monthlyAmortizationSeK), loanAmountSeK);
-  const monthlyInterestDeductionSeK =
-    calculateYearlyInterestDeduction(monthlyInterestSeK * 12, numberOfBorrowers) / 12;
-  const monthlyPaymentSeK = monthlyInterestSeK + amortizationSeK;
+export function projectMortgage({
+  portions,
+  housePriceSeK,
+  amortizationMode,
+  fixedMonthlyAmortizationSeK,
+  enforceRequirement,
+  amortizationBasisSeK,
+  maxMonths = 100 * 12,
+}: ProjectionInput): MortgageProjection {
+  const initialBalanceSeK = portions.reduce((sum, p) => sum + Math.max(0, p.amountSeK), 0);
+  const averageRatePercent =
+    initialBalanceSeK > 0
+      ? portions.reduce((sum, p) => sum + Math.max(0, p.amountSeK) * Math.max(0, p.interestRate), 0) /
+        initialBalanceSeK
+      : 0;
+  const monthlyRate = averageRatePercent / 100 / 12;
+  const basisSeK = Math.max(0, amortizationBasisSeK ?? initialBalanceSeK);
+  const toLoanToValue = (balance: number) => (housePriceSeK > 0 ? balance / housePriceSeK : 0);
+  const initialLoanToValue = toLoanToValue(initialBalanceSeK);
 
-  let monthsToDebtFree: number | null = null;
-  let totalInterestUntilDebtFreeSeK: number | null = null;
-  if (loanAmountSeK > 0 && amortizationSeK > 0) {
-    // Straight amortization: balance before month k is D - k*A.
-    const n = Math.ceil(loanAmountSeK / amortizationSeK);
-    const sumOfBalances = n * loanAmountSeK - (amortizationSeK * n * (n - 1)) / 2;
-    monthsToDebtFree = n;
-    totalInterestUntilDebtFreeSeK = (sumOfBalances * averageRatePercent) / 100 / 12;
+  const milestoneMonths: Record<LoanToValueMilestone, number | null> = {
+    below70: initialLoanToValue <= 0.7 + LTV_EPSILON ? 0 : null,
+    below50: initialLoanToValue <= 0.5 + LTV_EPSILON ? 0 : null,
+    debtFree: initialBalanceSeK <= 0 ? 0 : null,
+  };
+
+  const months: ProjectionMonth[] = [];
+  let balance = initialBalanceSeK;
+  let totalInterestSeK = 0;
+
+  for (let month = 1; month <= maxMonths && balance > BALANCE_EPSILON_SEK; month++) {
+    const requiredRate = calculateRequiredAmortizationRate(balance, housePriceSeK);
+    const requiredAmountSeK = (basisSeK * requiredRate) / 12;
+    const plannedSeK =
+      amortizationMode === 'requirement'
+        ? requiredAmountSeK
+        : enforceRequirement
+          ? Math.max(fixedMonthlyAmortizationSeK, requiredAmountSeK)
+          : Math.max(0, fixedMonthlyAmortizationSeK);
+    const amortizationSeK = Math.min(balance, plannedSeK);
+    const interestSeK = balance * monthlyRate;
+    const closingBalanceSeK = balance - amortizationSeK;
+    const closingLoanToValue = toLoanToValue(closingBalanceSeK);
+
+    months.push({
+      month,
+      openingBalanceSeK: balance,
+      interestSeK,
+      amortizationSeK,
+      paymentSeK: interestSeK + amortizationSeK,
+      closingBalanceSeK,
+      closingLoanToValue,
+      requiredRate,
+    });
+
+    if (milestoneMonths.below70 === null && closingLoanToValue <= 0.7 + LTV_EPSILON) {
+      milestoneMonths.below70 = month;
+    }
+    if (milestoneMonths.below50 === null && closingLoanToValue <= 0.5 + LTV_EPSILON) {
+      milestoneMonths.below50 = month;
+    }
+    if (closingBalanceSeK <= BALANCE_EPSILON_SEK) {
+      milestoneMonths.debtFree = month;
+    }
+
+    totalInterestSeK += interestSeK;
+    balance = closingBalanceSeK;
+
+    // Nothing more will change once there is no amortization: stop instead of looping.
+    if (amortizationSeK <= 0 && month >= 12) {
+      break;
+    }
+  }
+
+  const years: ProjectionYear[] = [];
+  for (let start = 0; start < months.length; start += 12) {
+    const slice = months.slice(start, start + 12);
+    const last = slice[slice.length - 1];
+    const year = start / 12 + 1;
+    const milestones = (Object.keys(milestoneMonths) as LoanToValueMilestone[]).filter((key) => {
+      const reachedAt = milestoneMonths[key];
+      return reachedAt !== null && reachedAt > start && reachedAt <= start + 12;
+    });
+    years.push({
+      year,
+      interestSeK: slice.reduce((sum, m) => sum + m.interestSeK, 0),
+      amortizationSeK: slice.reduce((sum, m) => sum + m.amortizationSeK, 0),
+      paymentSeK: slice.reduce((sum, m) => sum + m.paymentSeK, 0),
+      firstMonthPaymentSeK: slice[0].paymentSeK,
+      closingBalanceSeK: last.closingBalanceSeK,
+      closingLoanToValue: last.closingLoanToValue,
+      requiredRate: slice[0].requiredRate,
+      milestones,
+    });
   }
 
   return {
-    loanAmountSeK,
+    initialBalanceSeK,
+    initialLoanToValue,
     averageRatePercent,
-    monthlyInterestSeK,
-    monthlyAmortizationSeK: amortizationSeK,
-    monthlyPaymentSeK,
-    monthlyInterestDeductionSeK,
-    monthlyNetPaymentSeK: monthlyPaymentSeK - monthlyInterestDeductionSeK,
-    monthsToDebtFree,
-    totalInterestUntilDebtFreeSeK,
+    months,
+    years,
+    milestoneMonths,
+    totalInterestSeK,
+    isTruncated: balance > BALANCE_EPSILON_SEK,
   };
 }
 
-export function calculateWhatIf({
-  portions,
-  rateChangePercentPoints,
-  currentMonthlyAmortizationSeK,
-  newMonthlyAmortizationSeK,
-  numberOfBorrowers,
-}: WhatIfInput): WhatIfResult {
-  const current = calculateWhatIfSide(portions, 0, currentMonthlyAmortizationSeK, numberOfBorrowers);
-  const scenario = calculateWhatIfSide(
-    portions,
-    rateChangePercentPoints,
-    newMonthlyAmortizationSeK,
-    numberOfBorrowers
-  );
-  const monthlyNetPaymentDeltaSeK = scenario.monthlyNetPaymentSeK - current.monthlyNetPaymentSeK;
+/** Applies a rate change (percentage points) to every portion; rates never go below 0. */
+export function applyRateChange(portions: LoanPortion[], rateChangePercentPoints: number): LoanPortion[] {
+  if (rateChangePercentPoints === 0) {
+    return portions;
+  }
 
-  return {
-    current,
-    scenario,
-    monthlyPaymentDeltaSeK: scenario.monthlyPaymentSeK - current.monthlyPaymentSeK,
-    monthlyNetPaymentDeltaSeK,
-    yearlyNetPaymentDeltaSeK: monthlyNetPaymentDeltaSeK * 12,
-  };
+  return portions.map((portion) => ({
+    ...portion,
+    interestRate: Math.max(0, portion.interestRate + rateChangePercentPoints),
+  }));
 }
 
 export function generateScenarios(

@@ -1,64 +1,67 @@
 import { useMemo } from 'react'
-import {
-  calculateRequiredAmortizationRate,
-  type AmortizationRow,
-} from '../utils/calculations'
+import type { LoanToValueMilestone, MortgageProjection } from '../utils/calculations'
+import { formatLoanToValue, getDateForPaymentMonth } from '../utils/planFormatting'
 
 interface UseAmortizationScheduleViewParams {
-  schedule: AmortizationRow[]
-  initialLoanAmount: number
-  housePrice: number
+  projection: MortgageProjection
+  startDate: Date
+}
+
+export interface AmortizationScheduleRow {
+  year: number
+  calendarYearLabel: string
+  loanToValueLabel: string
+  closingBalanceSeK: number
+  monthlyPaymentSeK: number
+  interestSeK: number
+  amortizationSeK: number
+  requirementLabel: string
+  milestones: string[]
 }
 
 export interface AmortizationScheduleViewModel {
-  hasPrincipalReduction: boolean
-  currentRate: number
-  yearAt70: number | null
-  yearAt50: number | null
-  getMilestonesForYear: (year: number) => string[]
+  hasRows: boolean
+  rows: AmortizationScheduleRow[]
+  isTruncated: boolean
+  totalInterestSeK: number
 }
 
-function findYearForBalance(schedule: AmortizationRow[], thresholdBalance: number): number | null {
-  const hit = schedule.find((row) => row.remainingBalanceSeK <= thresholdBalance)
-  return hit ? hit.period : null
+const MILESTONE_BADGES: Record<LoanToValueMilestone, string> = {
+  below70: 'Under 70 %',
+  below50: 'Under 50 %',
+  debtFree: 'Skuldfri',
 }
 
 export function useAmortizationScheduleView({
-  schedule,
-  initialLoanAmount,
-  housePrice,
+  projection,
+  startDate,
 }: UseAmortizationScheduleViewParams): AmortizationScheduleViewModel {
-  const hasPrincipalReduction = useMemo(
-    () => schedule.some((row) => row.annualPrincipalSeK > 0),
-    [schedule]
-  )
+  const rows = useMemo(
+    () =>
+      projection.years.map((year) => {
+        const firstMonth = (year.year - 1) * 12 + 1
+        const startYear = getDateForPaymentMonth(startDate, firstMonth).getFullYear()
+        const endYear = getDateForPaymentMonth(startDate, firstMonth + 11).getFullYear()
 
-  const yearAt70 = useMemo(
-    () => findYearForBalance(schedule, housePrice * 0.7),
-    [schedule, housePrice]
+        return {
+          year: year.year,
+          calendarYearLabel: startYear === endYear ? String(startYear) : `${startYear}–${String(endYear).slice(2)}`,
+          loanToValueLabel: formatLoanToValue(year.closingLoanToValue),
+          closingBalanceSeK: year.closingBalanceSeK,
+          monthlyPaymentSeK: year.firstMonthPaymentSeK,
+          interestSeK: year.interestSeK,
+          amortizationSeK: year.amortizationSeK,
+          requirementLabel: `${(year.requiredRate * 100).toLocaleString('sv-SE')} %`,
+          milestones: year.milestones.map((milestone) => MILESTONE_BADGES[milestone]),
+        }
+      }),
+    [projection, startDate]
   )
-  const yearAt50 = useMemo(
-    () => findYearForBalance(schedule, housePrice * 0.5),
-    [schedule, housePrice]
-  )
-
-  const currentRate = useMemo(
-    () => calculateRequiredAmortizationRate(initialLoanAmount, housePrice),
-    [initialLoanAmount, housePrice]
-  )
-
-  const getMilestonesForYear = (year: number): string[] => {
-    const milestones: string[] = []
-    if (yearAt70 === year) milestones.push('70% nådd')
-    if (yearAt50 === year) milestones.push('50% nådd')
-    return milestones
-  }
 
   return {
-    hasPrincipalReduction,
-    currentRate,
-    yearAt70,
-    yearAt50,
-    getMilestonesForYear,
+    hasRows: rows.length > 0,
+    rows,
+    isTruncated: projection.isTruncated,
+    totalInterestSeK: projection.totalInterestSeK,
   }
 }
