@@ -106,6 +106,7 @@ describe('BCT: useMortgageCalculations', () => {
 				downPayment: 730000,
 				monthlyIncome: 90000,
 				monthlyAmortization: 5000,
+				isMonthlyAmortizationUserSet: true,
 				monthlyOperatingCost: 0,
 				monthlyBudgetItems: [],
 				selectedBank: 'seb',

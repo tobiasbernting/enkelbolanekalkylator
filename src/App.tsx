@@ -4,8 +4,6 @@ import {
   AccordionIcon,
   AccordionItem,
   AccordionPanel,
-  Badge,
-  Divider,
   Container,
   VStack,
   Box,
@@ -16,8 +14,14 @@ import {
   HStack,
   Button,
   Flex,
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
   useDisclosure,
 } from '@chakra-ui/react'
+import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { InputPanel } from './components/InputPanel'
 import { SaveCalculationDialog } from './components/SaveCalculationDialog'
@@ -25,17 +29,22 @@ import { SummaryCard } from './components/SummaryCard'
 import { BankComparisonSection } from './components/BankComparisonSection'
 import { AmortizationSchedule } from './components/AmortizationSchedule'
 import { ScenarioComparison } from './components/ScenarioComparison'
-import { WhatIfPanel } from './components/WhatIfPanel'
+import { LoanToValueChart } from './components/LoanToValueChart'
+import { PlanControls } from './components/PlanControls'
+import { PlanOverview } from './components/PlanOverview'
+import { PlanStickySummary } from './components/PlanStickySummary'
 import { useAutoAmortization } from './hooks/useAutoAmortization'
 import { useMortgageCalculations } from './hooks/useMortgageCalculations'
 import { useMortgageState } from './hooks/useMortgageState'
+import { formatCurrency } from './utils/calculations'
 import { isMortgageFormComplete } from './utils/mortgageFormCompletion'
+import { getPlanStartDate } from './utils/planFormatting'
 import './App.css'
 
 function App() {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { state, actions } = useMortgageState()
-  const hasLoanPortions = state.loanPortions.length > 0
+  const planStartDate = useMemo(() => getPlanStartDate(), [])
   const isExistingLoan = state.loanMode === 'existing'
   const isFormComplete = isMortgageFormComplete({
     housePrice: state.housePrice,
@@ -59,6 +68,7 @@ function App() {
     loanPortions: state.loanPortions,
     loanMode: state.loanMode,
     isMonthlyAmortizationUserSet: state.isMonthlyAmortizationUserSet,
+    rateChangePercentPoints: state.rateChange,
   })
 
   const amortizationControl = useAutoAmortization({
@@ -89,75 +99,52 @@ function App() {
     )
   }
 
+  const loanAmountSeK = Math.max(0, state.housePrice - state.downPayment)
+  const inputSummary = [
+    `${isExistingLoan ? 'Värde' : 'Pris'} ${formatCurrency(state.housePrice)}`,
+    `Lån ${formatCurrency(loanAmountSeK)}`,
+    `Ränta ${calculations.selectedNominalRatePercent.toLocaleString('sv-SE', { maximumFractionDigits: 2 })} %`,
+  ].join(' · ')
+
   return (
-    <Container maxW="8xl" py={8}>
-      <VStack spacing={8} align="stretch">
+    // Extra bottom padding on small screens keeps content clear of the sticky summary bar.
+    <Container maxW="8xl" pt={{ base: 4, md: 8 }} pb={{ base: 24, lg: 8 }} px={{ base: 0, md: 4 }}>
+      <VStack spacing={6} align="stretch">
         <Flex
           direction={{ base: 'column', lg: 'row' }}
           justify="space-between"
           align={{ base: 'stretch', lg: 'center' }}
           gap={4}
         >
-          <Box textAlign={{ base: 'center', lg: 'left' }}>
-            <Heading as="h1" size="2xl" mb={2}>
-              Dina beräknade resultat
+          <Box>
+            <Heading as="h1" size={{ base: 'xl', md: '2xl' }} mb={1}>
+              {isExistingLoan ? 'Ditt bolån' : 'Ditt nya bolån'}
             </Heading>
             <Text fontSize="lg" color="gray.600">
-              {isExistingLoan
-                ? 'Så ser ditt nuvarande bolån ut, och hur det påverkas om räntan eller amorteringen ändras.'
-                : 'Utifrån dina inmatade uppgifter visas din boendekostnad och jämförelser.'}
+              Se vad du betalar varje månad och när belåningsgraden sjunker.
             </Text>
           </Box>
 
-          <HStack justify={{ base: 'center', lg: 'flex-end' }} spacing={3} flexWrap="wrap">
-            <Button onClick={onOpen} colorScheme="blue" w={{ base: '100%', sm: 'auto' }}>
+          <HStack justify={{ base: 'stretch', lg: 'flex-end' }} spacing={3} flexWrap="wrap">
+            <Button onClick={onOpen} colorScheme="blue" flex={{ base: 1, sm: 'none' }}>
               Spara beräkning
             </Button>
-            <Button as={Link} to={backHref} variant="outline" colorScheme="blue" w={{ base: '100%', sm: 'auto' }}>
-              Skapa ny beräkning
+            <Button as={Link} to={backHref} variant="outline" colorScheme="blue" flex={{ base: 1, sm: 'none' }}>
+              Ny beräkning
             </Button>
           </HStack>
         </Flex>
 
-        <Box bg="white" p={5} borderRadius="lg" boxShadow="md" borderLeftWidth="4px" borderLeftColor="blue.500">
-          <VStack spacing={4} align="stretch">
-            <HStack justify="space-between" flexWrap="wrap" gap={2}>
-              <Text fontSize="lg" fontWeight="bold" color="gray.800">
-                Dina uppgifter
-              </Text>
-              <Badge colorScheme="blue" px={2} py={1} borderRadius="md">
-                Underlag för beräkning
-              </Badge>
-            </HStack>
-            <Divider />
-            <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }} gap={4}>
-              <GridItem>
-                <Text fontSize="xs" color="gray.500">{isExistingLoan ? 'Bostadens värde' : 'Huspris'}</Text>
-                <Text fontSize="lg" fontWeight="semibold">{state.housePrice.toLocaleString('sv-SE')} kr</Text>
-              </GridItem>
-              <GridItem>
-                <Text fontSize="xs" color="gray.500">{isExistingLoan ? 'Kvarvarande lån' : 'Handpenning'}</Text>
-                <Text fontSize="lg" fontWeight="semibold">
-                  {Math.round(isExistingLoan ? state.housePrice - state.downPayment : state.downPayment).toLocaleString('sv-SE')} kr
-                </Text>
-              </GridItem>
-              <GridItem>
-                <Text fontSize="xs" color="gray.500">Månadsinkomst</Text>
-                <Text fontSize="lg" fontWeight="semibold">{state.monthlyIncome.toLocaleString('sv-SE')} kr</Text>
-              </GridItem>
-              <GridItem>
-                <Text fontSize="xs" color="gray.500">Driftskostnad/mån</Text>
-                <Text fontSize="lg" fontWeight="semibold">{state.monthlyOperatingCost.toLocaleString('sv-SE')} kr</Text>
-              </GridItem>
-            </Grid>
-          </VStack>
-        </Box>
-
         <Accordion allowToggle defaultIndex={[]}>
           <AccordionItem borderWidth={1} borderColor="gray.200" borderRadius="lg" bg="white">
-            <AccordionButton py={3} px={4} _hover={{ bg: 'gray.50' }}>
+            <AccordionButton py={3} px={4} _hover={{ bg: 'gray.50' }} borderRadius="lg">
               <Box flex="1" textAlign="left">
-                <Text fontWeight="semibold" color="gray.700">Justera inmatade uppgifter</Text>
+                <Text fontWeight="semibold" color="gray.800">
+                  Dina uppgifter
+                </Text>
+                <Text fontSize="sm" color="gray.600">
+                  {inputSummary} · Klicka för att ändra
+                </Text>
               </Box>
               <AccordionIcon />
             </AccordionButton>
@@ -195,61 +182,98 @@ function App() {
           </AccordionItem>
         </Accordion>
 
-        <SummaryCard
-          monthlyPayment={calculations.totalMonthlyCost}
-          budgetMonthlyCost={calculations.monthlyBudgetCostSeK}
-          interestMonthlyPayment={calculations.loanCalculation.monthlyPaymentSeK}
-          effectiveInterestMonthlyPayment={calculations.selectedEffectiveMonthlyInterestSeK}
-          monthlyInterestDeduction={calculations.selectedMonthlyInterestDeductionSeK}
-          yearlyInterestDeduction={calculations.selectedYearlyInterestDeductionSeK}
-          yearlyInterestDeductionPerBorrower={calculations.selectedYearlyInterestDeductionPerBorrowerSeK}
-          numberOfBorrowers={state.numberOfBorrowers}
-          monthlyInterestDeductionRatePercent={calculations.selectedMonthlyInterestDeductionRatePercent}
-          effectiveMonthlyPayment={calculations.selectedEffectiveMonthlyCostSeK}
-          nominalRatePercent={calculations.selectedNominalRatePercent}
-          effectiveRatePercent={calculations.selectedEffectiveRatePercent}
-          monthlyOperatingCost={state.monthlyOperatingCost}
-          requiredMonthlyAmortization={calculations.effectiveMonthlyAmortization}
-          loanAmount={calculations.loanCalculation.loanAmountSeK}
-          amountToFinanceSeK={calculations.loanCalculation.amountToFinanceSeK}
-        />
-
-        <WhatIfPanel
-          loanPortions={calculations.effectivePortions}
-          currentMonthlyAmortizationSeK={calculations.effectiveMonthlyAmortization}
-          requiredMonthlyAmortizationSeK={calculations.requiredMonthlyAmortization}
-          numberOfBorrowers={state.numberOfBorrowers}
-          loanMode={state.loanMode}
-        />
-
-        {hasLoanPortions && (
-          <BankComparisonSection
-            rows={calculations.perBankSummary}
-            selectedBankId={state.selectedBank}
-          />
-        )}
-
-        {hasLoanPortions && (
-          <>
-            <AmortizationSchedule
-              schedule={calculations.amortizationSchedule}
-              initialLoanAmount={calculations.loanCalculation.loanAmountSeK}
-              housePrice={state.housePrice}
+        {/* Controls sit beside the results on wide screens so every change is visible at once. */}
+        <Grid templateColumns={{ base: '1fr', lg: '380px 1fr' }} gap={6} alignItems="start">
+          <GridItem position={{ base: 'static', lg: 'sticky' }} top={{ lg: '88px' }}>
+            <PlanControls
+              loanMode={state.loanMode}
+              isAmortizationAuto={amortizationControl.isMonthlyAmortizationAuto}
+              effectiveMonthlyAmortizationSeK={calculations.effectiveMonthlyAmortization}
+              requiredMonthlyAmortizationSeK={calculations.requiredMonthlyAmortization}
+              loanAmountSeK={calculations.projection.initialBalanceSeK}
+              rateChange={state.rateChange}
+              currentPaymentSeK={calculations.projection.months[0]?.paymentSeK ?? 0}
+              baselinePaymentSeK={calculations.baselineProjection.months[0]?.paymentSeK ?? 0}
+              onAmortizationChange={amortizationControl.setManualMonthlyAmortization}
+              onFollowRequirement={() => amortizationControl.setAmortizationMode(true)}
+              onRateChange={actions.setRateChange}
             />
+          </GridItem>
+          <GridItem minW={0}>
+            <VStack spacing={6} align="stretch">
+              <PlanOverview
+                projection={calculations.projection}
+                baselineProjection={calculations.baselineProjection}
+                startDate={planStartDate}
+                monthlyInterestDeductionSeK={calculations.selectedMonthlyInterestDeductionSeK}
+                monthlyOperatingCostSeK={state.monthlyOperatingCost}
+                monthlyBudgetCostSeK={calculations.monthlyBudgetCostSeK}
+              />
+              <LoanToValueChart projection={calculations.projection} startDate={planStartDate} />
+            </VStack>
+          </GridItem>
+        </Grid>
 
-            <ScenarioComparison
-              loanPortions={calculations.effectivePortions}
-              monthlyAmortizationSeK={calculations.effectiveMonthlyAmortization}
-              monthlyOperatingCostSeK={state.monthlyOperatingCost}
-              monthlyBudgetCostSeK={calculations.monthlyBudgetCostSeK}
-              selectedBank={state.selectedBank}
-              selectedRateType={state.selectedRateType}
-            />
-          </>
-        )}
+        <Box bg="white" borderRadius="lg" boxShadow="md" p={{ base: 3, md: 5 }}>
+          <Tabs colorScheme="blue" isLazy>
+            <TabList overflowX="auto" overflowY="hidden" whiteSpace="nowrap">
+              <Tab>Amorteringsplan</Tab>
+              <Tab>Månadskostnad</Tab>
+              <Tab>Jämför banker</Tab>
+              <Tab>Scenarioanalys</Tab>
+            </TabList>
+            <TabPanels>
+              <TabPanel px={0}>
+                <AmortizationSchedule projection={calculations.projection} startDate={planStartDate} />
+              </TabPanel>
+              <TabPanel px={0}>
+                <SummaryCard
+                  monthlyPayment={calculations.totalMonthlyCost}
+                  budgetMonthlyCost={calculations.monthlyBudgetCostSeK}
+                  interestMonthlyPayment={calculations.loanCalculation.monthlyPaymentSeK}
+                  effectiveInterestMonthlyPayment={calculations.selectedEffectiveMonthlyInterestSeK}
+                  monthlyInterestDeduction={calculations.selectedMonthlyInterestDeductionSeK}
+                  yearlyInterestDeduction={calculations.selectedYearlyInterestDeductionSeK}
+                  yearlyInterestDeductionPerBorrower={calculations.selectedYearlyInterestDeductionPerBorrowerSeK}
+                  numberOfBorrowers={state.numberOfBorrowers}
+                  monthlyInterestDeductionRatePercent={calculations.selectedMonthlyInterestDeductionRatePercent}
+                  effectiveMonthlyPayment={calculations.selectedEffectiveMonthlyCostSeK}
+                  nominalRatePercent={calculations.selectedNominalRatePercent}
+                  effectiveRatePercent={calculations.selectedEffectiveRatePercent}
+                  monthlyOperatingCost={state.monthlyOperatingCost}
+                  requiredMonthlyAmortization={calculations.effectiveMonthlyAmortization}
+                  loanAmount={calculations.loanCalculation.loanAmountSeK}
+                  amountToFinanceSeK={calculations.loanCalculation.amountToFinanceSeK}
+                />
+              </TabPanel>
+              <TabPanel px={0}>
+                <BankComparisonSection rows={calculations.perBankSummary} selectedBankId={state.selectedBank} />
+              </TabPanel>
+              <TabPanel px={0}>
+                <ScenarioComparison
+                  loanPortions={calculations.effectivePortions}
+                  monthlyAmortizationSeK={calculations.effectiveMonthlyAmortization}
+                  monthlyOperatingCostSeK={state.monthlyOperatingCost}
+                  monthlyBudgetCostSeK={calculations.monthlyBudgetCostSeK}
+                  selectedBank={state.selectedBank}
+                  selectedRateType={state.selectedRateType}
+                />
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
+        </Box>
 
         <SaveCalculationDialog isOpen={isOpen} onClose={onClose} />
       </VStack>
+
+      <PlanStickySummary
+        projection={calculations.projection}
+        baselineProjection={calculations.baselineProjection}
+        startDate={planStartDate}
+        monthlyInterestDeductionSeK={calculations.selectedMonthlyInterestDeductionSeK}
+        monthlyOperatingCostSeK={state.monthlyOperatingCost}
+        monthlyBudgetCostSeK={calculations.monthlyBudgetCostSeK}
+      />
     </Container>
   )
 }
