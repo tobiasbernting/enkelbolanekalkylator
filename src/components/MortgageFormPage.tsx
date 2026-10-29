@@ -33,13 +33,12 @@ export function MortgageFormPage() {
   const isFormComplete = useMemo(
     () =>
       isMortgageFormComplete({
-        loanMode: state.loanMode,
         housePrice: state.housePrice,
         downPayment: state.downPayment,
         monthlyIncome: state.monthlyIncome,
         loanPortions: state.loanPortions,
       }),
-    [state.loanMode, state.housePrice, state.downPayment, state.monthlyIncome, state.loanPortions]
+    [state.housePrice, state.downPayment, state.monthlyIncome, state.loanPortions]
   )
 
   const resultHref = useMemo(

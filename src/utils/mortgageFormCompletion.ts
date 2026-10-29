@@ -1,8 +1,6 @@
 import type { LoanPortion } from './calculations'
-import type { LoanMode } from '../hooks/useMortgageState'
 
 interface MortgageFormCompletionInput {
-  loanMode?: LoanMode
   housePrice: number
   downPayment: number
   monthlyIncome: number
@@ -10,7 +8,6 @@ interface MortgageFormCompletionInput {
 }
 
 export function isMortgageFormComplete({
-  loanMode = 'new',
   housePrice,
   downPayment,
   monthlyIncome,
@@ -24,9 +21,8 @@ export function isMortgageFormComplete({
     return false
   }
 
-  // Income only affects the skuldkvot rule, so it is optional for an existing loan.
-  const isIncomeRequired = loanMode === 'new'
-  if (!Number.isFinite(monthlyIncome) || monthlyIncome < 0 || (isIncomeRequired && monthlyIncome <= 0)) {
+  // Income is optional: since 2026-04-01 it no longer affects the amortization requirement.
+  if (!Number.isFinite(monthlyIncome) || monthlyIncome < 0) {
     return false
   }
 

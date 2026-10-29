@@ -38,7 +38,6 @@ function App() {
   const hasLoanPortions = state.loanPortions.length > 0
   const isExistingLoan = state.loanMode === 'existing'
   const isFormComplete = isMortgageFormComplete({
-    loanMode: state.loanMode,
     housePrice: state.housePrice,
     downPayment: state.downPayment,
     monthlyIncome: state.monthlyIncome,
@@ -236,7 +235,6 @@ function App() {
               schedule={calculations.amortizationSchedule}
               initialLoanAmount={calculations.loanCalculation.loanAmountSeK}
               housePrice={state.housePrice}
-              annualIncome={calculations.annualIncome}
             />
 
             <ScenarioComparison

@@ -29,7 +29,7 @@ All mortgage inputs are encoded in query parameters and parsed on load by `useMo
 
 ### New vs. existing loan
 
-`loanMode` (`'new'` | `'existing'`, URL param `loanMode`) is chosen at the top of the form page. In existing mode the form asks for the property's current value and the remaining debt (stored internally as `downPayment = value − debt`), income is optional, and a manually entered amortization may be below amorteringskravet (old loans can be exempt). New loans always use at least the required amortization.
+`loanMode` (`'new'` | `'existing'`, URL param `loanMode`) is chosen at the top of the form page. In existing mode the form asks for the property's current value and the remaining debt (stored internally as `downPayment = value − debt`), and a manually entered amortization may be below amorteringskravet (old loans can be exempt). New loans always use at least the required amortization.
 
 ### Two-page flow
 
@@ -67,7 +67,7 @@ Swedish ränteavdrag (interest deduction) is calculated by `calculateYearlyInter
 
 ### Amortization rules
 
-Swedish mortgage amortization requirements (amorteringskrav) are calculated in `calculateRequiredAmortizationRate()`: 2% if LTV > 70%, 1% if LTV > 50% (up to 70%), 0% at or below 50%, plus an extra 1% if debt-to-income ratio > 4.5×.
+Swedish mortgage amortization requirements (amorteringskrav) follow lag (2026:226) om begränsning av bostadskrediter, in force since 2026-04-01, and are calculated in `calculateRequiredAmortizationRate()`: 2% if LTV > 70%, 1% if LTV > 50% (up to 70%), 0% at or below 50%. The old extra 1% for debt-to-income > 4.5× (skärpt amorteringskrav) was removed by that law, so income does not affect the requirement and is optional in the form. The bolånetak is 90% (`MAX_LOAN_TO_VALUE`); the form warns when a new loan exceeds it.
 
 ### Component structure
 

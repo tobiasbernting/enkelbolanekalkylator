@@ -231,7 +231,6 @@ export function generateAmortizationSchedule(
 export function generateCombinedAmortizationSchedule(
   portions: LoanPortion[],
   housePriceSeK: number,
-  annualIncomeSeK: number,
   maxProjectionYears = 120,
   minimumMonthlyAmortizationSeK = 0
 ): AmortizationRow[] {
@@ -273,8 +272,7 @@ export function generateCombinedAmortizationSchedule(
 
       const requiredRateThisMonth = calculateRequiredAmortizationRate(
         totalActiveBalance,
-        housePriceSeK,
-        annualIncomeSeK
+        housePriceSeK
       );
       const requiredMonthlyAmortizationSeK =
         Math.max(
@@ -355,19 +353,22 @@ export interface ScenarioResult {
   totalCostSeK: number;
 }
 
+/** Bolånetak: a new mortgage may be at most 90% of the property value (since 2026-04-01). */
+export const MAX_LOAN_TO_VALUE = 0.9;
+
+/**
+ * Amorteringskrav enligt lag (2026:226) om begränsning av bostadskrediter, gäller
+ * från 2026-04-01: 2% per år vid belåningsgrad över 70%, 1% över 50%, annars 0%.
+ * The earlier extra +1% for loans above 4.5× gross income (skärpt amorteringskrav)
+ * was removed by the same law, so income no longer affects the requirement.
+ */
 export function calculateRequiredAmortizationRate(
   loanAmountSeK: number,
-  housePriceSeK: number,
-  annualIncomeSeK: number
+  housePriceSeK: number
 ): number {
   const ltv = housePriceSeK > 0 ? loanAmountSeK / housePriceSeK : 0;
-  const debtToIncomeRatio = annualIncomeSeK > 0 ? loanAmountSeK / annualIncomeSeK : Infinity;
 
-  // Lagen kräver amortering vid belåningsgrad *över* 50 % respektive 70 %.
-  const baseRate = ltv > 0.7 ? 0.02 : ltv > 0.5 ? 0.01 : 0;
-  const additionalRate = annualIncomeSeK > 0 && debtToIncomeRatio > 4.5 ? 0.01 : 0;
-
-  return baseRate + additionalRate;
+  return ltv > 0.7 ? 0.02 : ltv > 0.5 ? 0.01 : 0;
 }
 
 /**
@@ -489,7 +490,6 @@ export function generateScenarios(
   loanAmountsSeK: number[],
   interestRates: number[],
   loanTermYears: number,
-  annualIncomeSeK: number,
   minimumMonthlyAmortizationSeK = 0
 ): ScenarioResult[] {
   const scenarios: ScenarioResult[] = [];
@@ -504,8 +504,7 @@ export function generateScenarios(
       const monthlyInterestSeK = loanAmountSeK * (interestRate / 100 / 12);
       const amortizationRate = calculateRequiredAmortizationRate(
         loanAmountSeK,
-        housePriceSeK,
-        annualIncomeSeK
+        housePriceSeK
       );
       const monthlyAmortizationSeK = Math.max(
         (loanAmountSeK * amortizationRate) / 12,

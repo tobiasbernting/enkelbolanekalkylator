@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { DownPaymentMode, LoanMode } from './useMortgageState'
+import { MAX_LOAN_TO_VALUE } from '../utils/calculations'
 
 interface UseInputPanelStateParams {
   loanMode?: LoanMode
@@ -30,6 +31,8 @@ export interface InputPanelViewModel {
   monthlyOperatingCostFieldValue: string
   currentLoanFieldValue: string
   isLoanAboveHouseValue: boolean
+  isAboveMortgageCap: boolean
+  minimumDownPaymentSeK: number
   onCurrentLoanInputChange: (value: string) => void
   onHousePriceInputChange: (value: string) => void
   onDownPaymentInputChange: (value: string) => void
@@ -90,6 +93,9 @@ export function useInputPanelState({
   // value - debt in downPayment so the rest of the pipeline stays unchanged.
   const currentLoan = Math.max(0, housePrice - downPayment)
   const isLoanAboveHouseValue = loanMode === 'existing' && downPayment < 0
+  // Bolånetaket gäller nya lån: lånet får vara högst 90 % av bostadens värde.
+  const minimumDownPaymentSeK = Math.ceil(housePrice * (1 - MAX_LOAN_TO_VALUE))
+  const isAboveMortgageCap = loanMode === 'new' && housePrice > 0 && downPayment < minimumDownPaymentSeK
 
   return {
     downPaymentPercent,
@@ -102,6 +108,8 @@ export function useInputPanelState({
     monthlyOperatingCostFieldValue: formatIntegerWithSpaces(monthlyOperatingCost),
     currentLoanFieldValue: formatIntegerWithSpaces(currentLoan),
     isLoanAboveHouseValue,
+    isAboveMortgageCap,
+    minimumDownPaymentSeK,
     onCurrentLoanInputChange: (value) =>
       onDownPaymentChange(housePrice - parseFormattedNumber(value)),
     onHousePriceInputChange: (value) => {

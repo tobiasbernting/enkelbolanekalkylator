@@ -136,10 +136,9 @@ export function useMortgageCalculations({
     () =>
       calculateRequiredAmortizationRate(
         requiredLoanAmountForRules,
-        housePrice,
-        annualIncome
+        housePrice
       ),
-    [requiredLoanAmountForRules, housePrice, annualIncome]
+    [requiredLoanAmountForRules, housePrice]
   )
 
   const amortizationExplanation = useMemo(() => {
@@ -147,22 +146,15 @@ export function useMortgageCalculations({
     const ltv = housePrice > 0 ? loanAmount / housePrice : 0
     const debtToIncomeRatio = annualIncome > 0 ? loanAmount / annualIncome : Infinity
 
-    const baseRate = ltv > 0.7 ? 0.02 : ltv > 0.5 ? 0.01 : 0
-    const additionalRate = annualIncome > 0 && debtToIncomeRatio > 4.5 ? 0.01 : 0
-
     const baseReason =
-      baseRate === 0.02
+      ltv > 0.7
         ? 'Belåningsgrad över 70 % ger 2,0 %'
-        : baseRate === 0.01
+        : ltv > 0.5
           ? 'Belåningsgrad över 50 % (upp till 70 %) ger 1,0 %'
           : 'Belåningsgrad på högst 50 % ger 0,0 %'
 
-    const debtReason =
-      additionalRate > 0
-        ? 'Skuldkvot över 4,5 gånger inkomsten lägger till +1,0 %'
-        : 'Ingen extra +1,0 % från skuldkvot'
-
-    return `${baseReason}. ${debtReason}. Belåningsgrad: ${(ltv * 100).toFixed(1)} %. Skuldkvot: ${Number.isFinite(debtToIncomeRatio) ? `${debtToIncomeRatio.toFixed(2)}x` : 'saknas (ingen inkomst)'}.`
+    // Skuldkvot no longer affects the requirement, but banks still look at it.
+    return `${baseReason}. Sedan 1 april 2026 påverkar skuldkvoten inte amorteringskravet. Belåningsgrad: ${(ltv * 100).toFixed(1)} %. Skuldkvot: ${Number.isFinite(debtToIncomeRatio) ? `${debtToIncomeRatio.toFixed(2)}x` : 'saknas (ingen inkomst)'}.`
   }, [requiredLoanAmountForRules, housePrice, annualIncome])
 
   const requiredMonthlyAmortization = useMemo(
@@ -237,11 +229,7 @@ export function useMortgageCalculations({
         bankEffectivePortions
       )
 
-      const bankRequiredAmortizationRate = calculateRequiredAmortizationRate(
-        requiredLoanAmountForRules,
-        housePrice,
-        annualIncome
-      )
+      const bankRequiredAmortizationRate = requiredAmortizationRate
 
       const bankMonthlyAmortizationSeK = effectiveMonthlyAmortization
 
@@ -296,11 +284,10 @@ export function useMortgageCalculations({
     selectedRateType,
     housePrice,
     downPayment,
-    annualIncome,
+    requiredAmortizationRate,
     effectiveMonthlyAmortization,
     monthlyOperatingCost,
     monthlyBudgetCostSeK,
-    requiredLoanAmountForRules,
   ])
 
   const amortizationSchedule = useMemo(
@@ -308,11 +295,10 @@ export function useMortgageCalculations({
       generateCombinedAmortizationSchedule(
         effectivePortions,
         housePrice,
-        annualIncome,
         80,
         effectiveMonthlyAmortization
       ),
-    [effectivePortions, housePrice, annualIncome, effectiveMonthlyAmortization]
+    [effectivePortions, housePrice, effectiveMonthlyAmortization]
   )
 
   // Rates shown for "your" loan come from the portions themselves, so custom rates

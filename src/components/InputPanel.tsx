@@ -119,8 +119,17 @@ export function InputPanel({
             </Text>
             <Text fontSize="xs" color="orange.800" fontWeight="semibold" mt={1}>
               {isExistingLoan
-                ? 'Ditt belopp används i beräkningen. För befintliga lån kan kravet vara lägre, t.ex. för lån tagna före 2016 eller om banken räknar på ett äldre värde.'
+                ? 'Ditt belopp används i beräkningen. Vad som gäller för ditt lån beror på när det togs och vilket värde banken räknar på – t.ex. är lån från före 2016 undantagna. Kontrollera med din bank.'
                 : `Minst ${Math.round(minimumMonthlyAmortization).toLocaleString('sv-SE')} SEK/mån används i beräkningen.`}
+            </Text>
+          </Box>
+        )}
+
+        {viewModel.isAboveMortgageCap && (
+          <Box p={2.5} bg="orange.50" borderWidth={1} borderColor="orange.200" borderRadius="md">
+            <Text fontSize="xs" color="orange.800">
+              Bolånetaket är 90 %: handpenningen behöver vara minst{' '}
+              {viewModel.minimumDownPaymentSeK.toLocaleString('sv-SE')} SEK (10 % av priset).
             </Text>
           </Box>
         )}
@@ -147,7 +156,7 @@ export function InputPanel({
 
           <FormControl>
             <FormLabel mb={2} lineHeight="short" whiteSpace="normal">
-              {isExistingLoan ? 'Månadsinkomst före skatt (SEK, valfritt)' : 'Månadsinkomst före skatt (SEK)'}
+              Månadsinkomst före skatt (SEK, valfritt)
             </FormLabel>
             <Input
               value={viewModel.monthlyIncomeFieldValue}
@@ -288,7 +297,7 @@ export function InputPanel({
         <Text fontSize="xs" color="gray.500" mt={-2}>
           {isExistingLoan
             ? 'Fyll i det du betalar idag. Auto räknar fram amorteringskravet för ett nytt lån; välj Manuell för att ange din faktiska amortering.'
-            : 'Årsinkomst beräknas automatiskt som månadsinkomst × 12. Amortering kan inte vara lägre än amorteringskravet.'}
+            : 'Amortering kan inte vara lägre än amorteringskravet: 1 % per år vid belåningsgrad över 50 %, 2 % över 70 %.'}
         </Text>
 
         <MonthlyBudgetSection
