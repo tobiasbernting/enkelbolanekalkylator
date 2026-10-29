@@ -117,6 +117,7 @@ describe('useMortgageState', () => {
     const { result } = renderHook(() => useMortgageState())
 
     act(() => {
+      result.current.actions.setHousePrice(2000000)
       result.current.actions.setLoanPortions([
         {
           id: 'portion-1',
@@ -149,5 +150,25 @@ describe('useMortgageState', () => {
       expect(result.current.state.loanPortions[0].amountSeK).toBe(937500)
       expect(result.current.state.loanPortions[1].amountSeK).toBe(562500)
     })
+  })
+
+  it('reads and writes loan mode and keeps it on reset', async () => {
+    window.history.replaceState({}, '', '/?loanMode=existing')
+
+    const { result } = renderHook(() => useMortgageState())
+    expect(result.current.state.loanMode).toBe('existing')
+
+    act(() => {
+      result.current.actions.setHousePrice(1000)
+    })
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get('loanMode')).toBe('existing')
+    })
+
+    act(() => {
+      result.current.actions.reset()
+    })
+    expect(result.current.state.loanMode).toBe('existing')
   })
 })

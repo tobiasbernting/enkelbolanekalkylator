@@ -21,7 +21,8 @@ export function isMortgageFormComplete({
     return false
   }
 
-  if (!Number.isFinite(monthlyIncome) || monthlyIncome <= 0) {
+  // Income is optional: since 2026-04-01 it no longer affects the amortization requirement.
+  if (!Number.isFinite(monthlyIncome) || monthlyIncome < 0) {
     return false
   }
 

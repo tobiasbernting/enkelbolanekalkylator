@@ -23,7 +23,6 @@ interface AmortizationScheduleProps {
   schedule: AmortizationRow[]
   initialLoanAmount: number
   housePrice: number
-  annualIncome: number
   title?: string
 }
 
@@ -31,7 +30,6 @@ export function AmortizationSchedule({
   schedule,
   initialLoanAmount,
   housePrice,
-  annualIncome,
   title = 'Amorteringsplan',
 }: AmortizationScheduleProps) {
   const bgHover = useColorModeValue('gray.50', 'gray.700')
@@ -39,7 +37,6 @@ export function AmortizationSchedule({
     schedule,
     initialLoanAmount,
     housePrice,
-    annualIncome,
   })
   const isMobile = useBreakpointValue({ base: true, md: false }) ?? false
   
@@ -157,15 +154,9 @@ export function AmortizationSchedule({
             <Text>
               50%-nivå ({formatCurrency(housePrice * 0.5)}): {viewModel.yearAt50 ? `uppnås runt år ${viewModel.yearAt50}` : 'inte uppnådd i planen'}.
             </Text>
-            {annualIncome > 0 ? (
-              <Text>
-                Skuldkvot 4,5x ({formatCurrency(annualIncome * 4.5)}): {viewModel.yearAtDebtRatio ? `uppnås runt år ${viewModel.yearAtDebtRatio}` : 'inte uppnådd i planen'}.
-              </Text>
-            ) : (
-              <Text>
-                Lägg till inkomst för att se när skuldkvotstillägget (+1%) försvinner.
-              </Text>
-            )}
+            <Text fontSize="xs" color="gray.500">
+              Sedan 1 april 2026 finns inget extra amorteringskrav för lån över 4,5 gånger inkomsten.
+            </Text>
           </Box>
         </Box>
       </VStack>

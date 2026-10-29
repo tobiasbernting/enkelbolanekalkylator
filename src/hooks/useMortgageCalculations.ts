@@ -1,15 +1,18 @@
 import { useMemo } from 'react'
 import {
   BANK_RATE_PRESETS,
+  getEffectiveRateForPortion,
   getEffectiveRatesByType,
   getRatesByType,
   type BankRateType,
 } from '../data/bankRates'
 import type { BankComparisonRow } from '../types/bankComparison'
 import type { MonthlyBudgetItem } from '../types/monthlyBudget'
+import type { LoanMode } from './useMortgageState'
 import {
   calculateMultipleLoans,
   calculateRequiredAmortizationRate,
+  calculateYearlyInterestDeduction,
   generateCombinedAmortizationSchedule,
   type AmortizationRow,
   type LoanPortion,
@@ -26,6 +29,8 @@ interface UseMortgageCalculationsParams {
   selectedRateType: BankRateType
   numberOfBorrowers: 1 | 2
   loanPortions: LoanPortion[]
+  loanMode?: LoanMode
+  isMonthlyAmortizationUserSet?: boolean
 }
 
 interface MortgageLoanCalculation {
@@ -62,18 +67,6 @@ interface UseMortgageCalculationsResult {
   amortizationSchedule: AmortizationRow[]
 }
 
-function calculateYearlyInterestDeduction(
-  yearlyInterestSeK: number,
-  numberOfBorrowers = 1
-): number {
-  const annualInterestSeK = Math.max(0, yearlyInterestSeK)
-  const thresholdSeK = Math.max(1, numberOfBorrowers) * 100000
-  const deductionUpToThresholdSeK = Math.min(annualInterestSeK, thresholdSeK) * 0.3
-  const deductionAboveThresholdSeK = Math.max(0, annualInterestSeK - thresholdSeK) * 0.21
-
-  return deductionUpToThresholdSeK + deductionAboveThresholdSeK
-}
-
 export function useMortgageCalculations({
   housePrice,
   downPayment,
@@ -85,6 +78,8 @@ export function useMortgageCalculations({
   selectedRateType,
   numberOfBorrowers,
   loanPortions,
+  loanMode = 'new',
+  isMonthlyAmortizationUserSet = false,
 }: UseMortgageCalculationsParams): UseMortgageCalculationsResult {
   const annualIncome = useMemo(() => monthlyIncome * 12, [monthlyIncome])
 
@@ -141,10 +136,9 @@ export function useMortgageCalculations({
     () =>
       calculateRequiredAmortizationRate(
         requiredLoanAmountForRules,
-        housePrice,
-        annualIncome
+        housePrice
       ),
-    [requiredLoanAmountForRules, housePrice, annualIncome]
+    [requiredLoanAmountForRules, housePrice]
   )
 
   const amortizationExplanation = useMemo(() => {
@@ -152,22 +146,15 @@ export function useMortgageCalculations({
     const ltv = housePrice > 0 ? loanAmount / housePrice : 0
     const debtToIncomeRatio = annualIncome > 0 ? loanAmount / annualIncome : Infinity
 
-    const baseRate = ltv > 0.7 ? 0.02 : ltv >= 0.5 ? 0.01 : 0
-    const additionalRate = annualIncome > 0 && debtToIncomeRatio > 4.5 ? 0.01 : 0
-
     const baseReason =
-      baseRate === 0.02
-        ? 'Belaningsgrad over 70% ger 2.0%'
-        : baseRate === 0.01
-          ? 'Belaningsgrad mellan 50-70% ger 1.0%'
-          : 'Belaningsgrad under 50% ger 0.0%'
+      ltv > 0.7
+        ? 'Belåningsgrad över 70 % ger 2,0 %'
+        : ltv > 0.5
+          ? 'Belåningsgrad över 50 % (upp till 70 %) ger 1,0 %'
+          : 'Belåningsgrad på högst 50 % ger 0,0 %'
 
-    const debtReason =
-      additionalRate > 0
-        ? 'Skuldkvot over 4.5x lagger till +1.0%'
-        : 'Ingen extra +1.0% fran skuldkvot'
-
-    return `${baseReason}. ${debtReason}. Belaningsgrad: ${(ltv * 100).toFixed(1)}%. Skuldkvot: ${Number.isFinite(debtToIncomeRatio) ? `${debtToIncomeRatio.toFixed(2)}x` : 'saknas (ingen inkomst)'}.`
+    // Skuldkvot no longer affects the requirement, but banks still look at it.
+    return `${baseReason}. Sedan 1 april 2026 påverkar skuldkvoten inte amorteringskravet. Belåningsgrad: ${(ltv * 100).toFixed(1)} %. Skuldkvot: ${Number.isFinite(debtToIncomeRatio) ? `${debtToIncomeRatio.toFixed(2)}x` : 'saknas (ingen inkomst)'}.`
   }, [requiredLoanAmountForRules, housePrice, annualIncome])
 
   const requiredMonthlyAmortization = useMemo(
@@ -175,9 +162,15 @@ export function useMortgageCalculations({
     [requiredLoanAmountForRules, requiredAmortizationRate]
   )
 
+  // A new loan must follow amorteringskravet. An existing loan may legitimately
+  // amortize less (e.g. loans from before 2016, or a requirement based on an older
+  // valuation), so a manually entered amount is used as is.
   const effectiveMonthlyAmortization = useMemo(
-    () => Math.max(requiredMonthlyAmortization, monthlyAmortization),
-    [requiredMonthlyAmortization, monthlyAmortization]
+    () =>
+      loanMode === 'existing' && isMonthlyAmortizationUserSet
+        ? Math.max(0, monthlyAmortization)
+        : Math.max(requiredMonthlyAmortization, monthlyAmortization),
+    [loanMode, isMonthlyAmortizationUserSet, requiredMonthlyAmortization, monthlyAmortization]
   )
 
   const monthlyBudgetCostSeK = useMemo(
@@ -236,18 +229,9 @@ export function useMortgageCalculations({
         bankEffectivePortions
       )
 
-      const bankRequiredAmortizationRate = calculateRequiredAmortizationRate(
-        requiredLoanAmountForRules,
-        housePrice,
-        annualIncome
-      )
+      const bankRequiredAmortizationRate = requiredAmortizationRate
 
-      const bankRequiredMonthlyAmortization =
-        (requiredLoanAmountForRules * bankRequiredAmortizationRate) / 12
-      const bankMonthlyAmortizationSeK = Math.max(
-        bankRequiredMonthlyAmortization,
-        monthlyAmortization
-      )
+      const bankMonthlyAmortizationSeK = effectiveMonthlyAmortization
 
       const monthlyPaymentSeK =
         bankCalculation.totalMonthlyPaymentSeK +
@@ -300,11 +284,10 @@ export function useMortgageCalculations({
     selectedRateType,
     housePrice,
     downPayment,
-    annualIncome,
-    monthlyAmortization,
+    requiredAmortizationRate,
+    effectiveMonthlyAmortization,
     monthlyOperatingCost,
     monthlyBudgetCostSeK,
-    requiredLoanAmountForRules,
   ])
 
   const amortizationSchedule = useMemo(
@@ -312,35 +295,38 @@ export function useMortgageCalculations({
       generateCombinedAmortizationSchedule(
         effectivePortions,
         housePrice,
-        annualIncome,
         80,
         effectiveMonthlyAmortization
       ),
-    [effectivePortions, housePrice, annualIncome, effectiveMonthlyAmortization]
+    [effectivePortions, housePrice, effectiveMonthlyAmortization]
   )
 
-  const selectedBankSummary = useMemo(
-    () => perBankSummary.find((row) => row.bankId === selectedBank),
-    [perBankSummary, selectedBank]
-  )
-
-  const fallbackNominalRatePercent =
+  // Rates shown for "your" loan come from the portions themselves, so custom rates
+  // (e.g. an existing loan) are respected instead of being replaced by bank presets.
+  const selectedNominalRatePercent =
     loanCalculation.loanAmountSeK > 0
       ? (loanCalculation.monthlyPaymentSeK * 12 * 100) / loanCalculation.loanAmountSeK
       : 0
 
-  const selectedNominalRatePercent =
-    selectedBankSummary?.nominalRatePercent ?? fallbackNominalRatePercent
+  const selectedEffectiveMonthlyInterestSeK = useMemo(
+    () =>
+      effectivePortions.reduce(
+        (sum, portion) =>
+          sum + (portion.amountSeK * getEffectiveRateForPortion(portion, selectedRateType)) / 100 / 12,
+        0
+      ),
+    [effectivePortions, selectedRateType]
+  )
+
   const selectedEffectiveRatePercent =
-    selectedBankSummary?.effectiveRatePercent ?? selectedNominalRatePercent
-  const selectedEffectiveMonthlyInterestSeK =
-    selectedBankSummary?.monthlyEffectiveInterestSeK ?? loanCalculation.monthlyPaymentSeK
+    loanCalculation.loanAmountSeK > 0
+      ? (selectedEffectiveMonthlyInterestSeK * 12 * 100) / loanCalculation.loanAmountSeK
+      : selectedNominalRatePercent
   const selectedEffectiveMonthlyCostSeK =
-    selectedBankSummary?.monthlyEffectivePaymentSeK ??
-    (loanCalculation.monthlyPaymentSeK +
-      effectiveMonthlyAmortization +
-      monthlyOperatingCost +
-      monthlyBudgetCostSeK)
+    selectedEffectiveMonthlyInterestSeK +
+    effectiveMonthlyAmortization +
+    monthlyOperatingCost +
+    monthlyBudgetCostSeK
 
   const estimatedYearlyInterestSeK = useMemo(() => {
     const openingDebt = Math.max(0, loanCalculation.loanAmountSeK)

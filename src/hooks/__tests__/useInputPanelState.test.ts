@@ -102,3 +102,38 @@ describe('useInputPanelState', () => {
 		expect(onDownPaymentChange).toHaveBeenCalledWith(660000)
 	})
 })
+
+describe('useInputPanelState bolånetak', () => {
+	const noop = () => {}
+	const baseParams = {
+		housePrice: 3000000,
+		monthlyIncome: 0,
+		monthlyAmortization: 0,
+		monthlyOperatingCost: 0,
+		minimumMonthlyAmortization: 0,
+		isMonthlyAmortizationAuto: true,
+		onHousePriceChange: noop,
+		onDownPaymentChange: noop,
+		onMonthlyIncomeChange: noop,
+		onMonthlyAmortizationChange: noop,
+		onMonthlyOperatingCostChange: noop,
+		onMonthlyAmortizationModeChange: noop,
+		onDownPaymentModeChange: noop,
+	}
+
+	it('warns when a new loan is above 90% of the price', () => {
+		const { result } = renderHook(() => useInputPanelState({ ...baseParams, downPayment: 299999 }))
+		expect(result.current.minimumDownPaymentSeK).toBe(300000)
+		expect(result.current.isAboveMortgageCap).toBe(true)
+	})
+
+	it('accepts exactly 10% down payment and ignores the cap for existing loans', () => {
+		const atCap = renderHook(() => useInputPanelState({ ...baseParams, downPayment: 300000 }))
+		expect(atCap.result.current.isAboveMortgageCap).toBe(false)
+
+		const existing = renderHook(() =>
+			useInputPanelState({ ...baseParams, loanMode: 'existing', downPayment: 100000 })
+		)
+		expect(existing.result.current.isAboveMortgageCap).toBe(false)
+	})
+})

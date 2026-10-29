@@ -25,6 +25,7 @@ import { SummaryCard } from './components/SummaryCard'
 import { BankComparisonSection } from './components/BankComparisonSection'
 import { AmortizationSchedule } from './components/AmortizationSchedule'
 import { ScenarioComparison } from './components/ScenarioComparison'
+import { WhatIfPanel } from './components/WhatIfPanel'
 import { useAutoAmortization } from './hooks/useAutoAmortization'
 import { useMortgageCalculations } from './hooks/useMortgageCalculations'
 import { useMortgageState } from './hooks/useMortgageState'
@@ -35,6 +36,7 @@ function App() {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { state, actions } = useMortgageState()
   const hasLoanPortions = state.loanPortions.length > 0
+  const isExistingLoan = state.loanMode === 'existing'
   const isFormComplete = isMortgageFormComplete({
     housePrice: state.housePrice,
     downPayment: state.downPayment,
@@ -55,6 +57,8 @@ function App() {
     selectedRateType: state.selectedRateType,
     numberOfBorrowers: state.numberOfBorrowers,
     loanPortions: state.loanPortions,
+    loanMode: state.loanMode,
+    isMonthlyAmortizationUserSet: state.isMonthlyAmortizationUserSet,
   })
 
   const amortizationControl = useAutoAmortization({
@@ -99,7 +103,9 @@ function App() {
               Dina beräknade resultat
             </Heading>
             <Text fontSize="lg" color="gray.600">
-              Utifrån dina inmatade uppgifter visas din boendekostnad och jämförelser.
+              {isExistingLoan
+                ? 'Så ser ditt nuvarande bolån ut, och hur det påverkas om räntan eller amorteringen ändras.'
+                : 'Utifrån dina inmatade uppgifter visas din boendekostnad och jämförelser.'}
             </Text>
           </Box>
 
@@ -126,12 +132,14 @@ function App() {
             <Divider />
             <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }} gap={4}>
               <GridItem>
-                <Text fontSize="xs" color="gray.500">Huspris</Text>
+                <Text fontSize="xs" color="gray.500">{isExistingLoan ? 'Bostadens värde' : 'Huspris'}</Text>
                 <Text fontSize="lg" fontWeight="semibold">{state.housePrice.toLocaleString('sv-SE')} kr</Text>
               </GridItem>
               <GridItem>
-                <Text fontSize="xs" color="gray.500">Handpenning</Text>
-                <Text fontSize="lg" fontWeight="semibold">{state.downPayment.toLocaleString('sv-SE')} kr</Text>
+                <Text fontSize="xs" color="gray.500">{isExistingLoan ? 'Kvarvarande lån' : 'Handpenning'}</Text>
+                <Text fontSize="lg" fontWeight="semibold">
+                  {Math.round(isExistingLoan ? state.housePrice - state.downPayment : state.downPayment).toLocaleString('sv-SE')} kr
+                </Text>
               </GridItem>
               <GridItem>
                 <Text fontSize="xs" color="gray.500">Månadsinkomst</Text>
@@ -155,6 +163,7 @@ function App() {
             </AccordionButton>
             <AccordionPanel pt={2} pb={4}>
               <InputPanel
+                loanMode={state.loanMode}
                 housePrice={state.housePrice}
                 downPayment={state.downPayment}
                 monthlyIncome={state.monthlyIncome}
@@ -205,6 +214,14 @@ function App() {
           amountToFinanceSeK={calculations.loanCalculation.amountToFinanceSeK}
         />
 
+        <WhatIfPanel
+          loanPortions={calculations.effectivePortions}
+          currentMonthlyAmortizationSeK={calculations.effectiveMonthlyAmortization}
+          requiredMonthlyAmortizationSeK={calculations.requiredMonthlyAmortization}
+          numberOfBorrowers={state.numberOfBorrowers}
+          loanMode={state.loanMode}
+        />
+
         {hasLoanPortions && (
           <BankComparisonSection
             rows={calculations.perBankSummary}
@@ -218,7 +235,6 @@ function App() {
               schedule={calculations.amortizationSchedule}
               initialLoanAmount={calculations.loanCalculation.loanAmountSeK}
               housePrice={state.housePrice}
-              annualIncome={calculations.annualIncome}
             />
 
             <ScenarioComparison

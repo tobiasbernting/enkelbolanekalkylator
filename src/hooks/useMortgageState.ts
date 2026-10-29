@@ -4,8 +4,11 @@ import type { LoanPortion } from '../utils/calculations'
 import type { MonthlyBudgetItem } from '../types/monthlyBudget'
 
 export type DownPaymentMode = 'amount' | 'percentage'
+/** 'new' = planning a new mortgage, 'existing' = already has a mortgage. */
+export type LoanMode = 'new' | 'existing'
 
 export interface MortgageState {
+  loanMode: LoanMode
   housePrice: number
   downPayment: number
   monthlyIncome: number
@@ -22,6 +25,7 @@ export interface MortgageState {
 }
 
 export interface MortgageStateActions {
+  setLoanMode: (value: LoanMode) => void
   setHousePrice: (value: number) => void
   setDownPayment: (value: number) => void
   setMonthlyIncome: (value: number) => void
@@ -59,6 +63,10 @@ function parseNumberParam(value: string | null, fallback: number): number {
 
 function parseDownPaymentModeParam(value: string | null): DownPaymentMode {
   return value === 'percentage' ? 'percentage' : 'amount'
+}
+
+export function parseLoanModeParam(value: string | null): LoanMode {
+  return value === 'existing' ? 'existing' : 'new'
 }
 
 function parseRateTypeParam(value: string | null): BankRateType {
@@ -193,6 +201,7 @@ function getInitialStateFromQuery(): MortgageState {
   )
 
   return {
+    loanMode: parseLoanModeParam(params.get('loanMode')),
     housePrice: parseNumberParam(params.get('housePrice'), DEFAULT_HOUSE_PRICE),
     downPayment: parseNumberParam(params.get('downPayment'), DEFAULT_DOWN_PAYMENT),
     monthlyIncome: monthlyIncomeFromQuery > 0 ? monthlyIncomeFromQuery : annualIncomeFromLegacyQuery / 12,
@@ -212,10 +221,46 @@ function getInitialStateFromQuery(): MortgageState {
   }
 }
 
+export function buildMortgageSearchParams(
+  state: MortgageState,
+  baseParams: URLSearchParams = new URLSearchParams()
+): URLSearchParams {
+  const params = new URLSearchParams(baseParams)
+
+  params.set('loanMode', state.loanMode)
+  params.set('housePrice', String(state.housePrice))
+  params.set('downPayment', String(state.downPayment))
+  params.set('monthlyIncome', String(state.monthlyIncome))
+  params.set('monthlyAmortization', String(state.monthlyAmortization))
+  params.set('monthlyOperatingCost', String(state.monthlyOperatingCost))
+  params.set('amortizationMode', state.isMonthlyAmortizationUserSet ? 'manual' : 'auto')
+  params.delete('annualIncome')
+  params.set('loanTerm', String(state.loanTerm))
+  params.set('bankId', state.selectedBank)
+  params.set('rateType', state.selectedRateType)
+  params.set('numberOfBorrowers', String(state.numberOfBorrowers))
+  params.set('downPaymentMode', state.downPaymentMode)
+
+  if (state.loanPortions.length > 0) {
+    params.set('loanPortions', JSON.stringify(state.loanPortions))
+  } else {
+    params.delete('loanPortions')
+  }
+
+  if (state.monthlyBudgetItems.length > 0) {
+    params.set('monthlyBudgetItems', JSON.stringify(state.monthlyBudgetItems))
+  } else {
+    params.delete('monthlyBudgetItems')
+  }
+
+  return params
+}
+
 export function useMortgageState(): { state: MortgageState; actions: MortgageStateActions } {
   const isTestEnvironment = import.meta.env.MODE === 'test'
   const initialState = useMemo(() => getInitialStateFromQuery(), [])
 
+  const [loanMode, setLoanMode] = useState<LoanMode>(initialState.loanMode)
   const [housePrice, setHousePrice] = useState(initialState.housePrice)
   const [downPayment, setDownPayment] = useState(initialState.downPayment)
   const [monthlyIncome, setMonthlyIncome] = useState(initialState.monthlyIncome)
@@ -248,32 +293,25 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       return
     }
 
-    const params = new URLSearchParams(window.location.search)
-
-    params.set('housePrice', String(housePrice))
-    params.set('downPayment', String(downPayment))
-    params.set('monthlyIncome', String(monthlyIncome))
-    params.set('monthlyAmortization', String(monthlyAmortization))
-    params.set('monthlyOperatingCost', String(monthlyOperatingCost))
-    params.set('amortizationMode', isMonthlyAmortizationUserSet ? 'manual' : 'auto')
-    params.delete('annualIncome')
-    params.set('loanTerm', String(loanTerm))
-    params.set('bankId', selectedBank)
-    params.set('rateType', selectedRateType)
-    params.set('numberOfBorrowers', String(numberOfBorrowers))
-    params.set('downPaymentMode', downPaymentMode)
-
-    if (loanPortions.length > 0) {
-      params.set('loanPortions', JSON.stringify(loanPortions))
-    } else {
-      params.delete('loanPortions')
-    }
-
-    if (monthlyBudgetItems.length > 0) {
-      params.set('monthlyBudgetItems', JSON.stringify(monthlyBudgetItems))
-    } else {
-      params.delete('monthlyBudgetItems')
-    }
+    const params = buildMortgageSearchParams(
+      {
+        loanMode,
+        housePrice,
+        downPayment,
+        monthlyIncome,
+        monthlyAmortization,
+        monthlyOperatingCost,
+        isMonthlyAmortizationUserSet,
+        loanTerm,
+        selectedBank,
+        selectedRateType,
+        numberOfBorrowers,
+        downPaymentMode,
+        loanPortions,
+        monthlyBudgetItems,
+      },
+      new URLSearchParams(window.location.search)
+    )
 
     const nextSearch = params.toString()
     const currentSearch = window.location.search.startsWith('?')
@@ -287,6 +325,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
     const newUrl = `${window.location.pathname}?${nextSearch}`
     window.history.replaceState({}, '', newUrl)
   }, [
+    loanMode,
     housePrice,
     downPayment,
     monthlyIncome,
@@ -304,6 +343,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
   ])
 
   const reset = useCallback(() => {
+    // Loan mode is a choice of calculator, not an input value, so it survives reset.
     setHousePrice(DEFAULT_HOUSE_PRICE)
     setDownPayment(DEFAULT_DOWN_PAYMENT)
     setMonthlyIncome(DEFAULT_MONTHLY_INCOME)
@@ -321,6 +361,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
 
   return {
     state: {
+      loanMode,
       housePrice,
       downPayment,
       monthlyIncome,
@@ -336,6 +377,7 @@ export function useMortgageState(): { state: MortgageState; actions: MortgageSta
       monthlyBudgetItems,
     },
     actions: {
+      setLoanMode,
       setHousePrice,
       setDownPayment,
       setMonthlyIncome,

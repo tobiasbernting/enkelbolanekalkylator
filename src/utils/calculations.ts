@@ -231,7 +231,6 @@ export function generateAmortizationSchedule(
 export function generateCombinedAmortizationSchedule(
   portions: LoanPortion[],
   housePriceSeK: number,
-  annualIncomeSeK: number,
   maxProjectionYears = 120,
   minimumMonthlyAmortizationSeK = 0
 ): AmortizationRow[] {
@@ -273,8 +272,7 @@ export function generateCombinedAmortizationSchedule(
 
       const requiredRateThisMonth = calculateRequiredAmortizationRate(
         totalActiveBalance,
-        housePriceSeK,
-        annualIncomeSeK
+        housePriceSeK
       );
       const requiredMonthlyAmortizationSeK =
         Math.max(
@@ -355,18 +353,136 @@ export interface ScenarioResult {
   totalCostSeK: number;
 }
 
+/** Bolånetak: a new mortgage may be at most 90% of the property value (since 2026-04-01). */
+export const MAX_LOAN_TO_VALUE = 0.9;
+
+/**
+ * Amorteringskrav enligt lag (2026:226) om begränsning av bostadskrediter, gäller
+ * från 2026-04-01: 2% per år vid belåningsgrad över 70%, 1% över 50%, annars 0%.
+ * The earlier extra +1% for loans above 4.5× gross income (skärpt amorteringskrav)
+ * was removed by the same law, so income no longer affects the requirement.
+ */
 export function calculateRequiredAmortizationRate(
   loanAmountSeK: number,
-  housePriceSeK: number,
-  annualIncomeSeK: number
+  housePriceSeK: number
 ): number {
   const ltv = housePriceSeK > 0 ? loanAmountSeK / housePriceSeK : 0;
-  const debtToIncomeRatio = annualIncomeSeK > 0 ? loanAmountSeK / annualIncomeSeK : Infinity;
 
-  const baseRate = ltv > 0.7 ? 0.02 : ltv >= 0.5 ? 0.01 : 0;
-  const additionalRate = annualIncomeSeK > 0 && debtToIncomeRatio > 4.5 ? 0.01 : 0;
+  return ltv > 0.7 ? 0.02 : ltv > 0.5 ? 0.01 : 0;
+}
 
-  return baseRate + additionalRate;
+/**
+ * Swedish ränteavdrag: 30% on the first 100 000 kr of interest per borrower
+ * and year, 21% on the part above.
+ */
+export function calculateYearlyInterestDeduction(
+  yearlyInterestSeK: number,
+  numberOfBorrowers = 1
+): number {
+  const annualInterestSeK = Math.max(0, yearlyInterestSeK);
+  const thresholdSeK = Math.max(1, numberOfBorrowers) * 100000;
+  const deductionUpToThresholdSeK = Math.min(annualInterestSeK, thresholdSeK) * 0.3;
+  const deductionAboveThresholdSeK = Math.max(0, annualInterestSeK - thresholdSeK) * 0.21;
+
+  return deductionUpToThresholdSeK + deductionAboveThresholdSeK;
+}
+
+/**
+ * What-if analysis for a loan: compares today's monthly cost with the cost after
+ * a change in interest rate and/or monthly amortization.
+ */
+export interface WhatIfInput {
+  portions: LoanPortion[];
+  rateChangePercentPoints: number;
+  currentMonthlyAmortizationSeK: number;
+  newMonthlyAmortizationSeK: number;
+  numberOfBorrowers: 1 | 2;
+}
+
+export interface WhatIfSide {
+  loanAmountSeK: number;
+  averageRatePercent: number;
+  monthlyInterestSeK: number;
+  monthlyAmortizationSeK: number;
+  monthlyPaymentSeK: number;
+  monthlyInterestDeductionSeK: number;
+  monthlyNetPaymentSeK: number;
+  monthsToDebtFree: number | null;
+  totalInterestUntilDebtFreeSeK: number | null;
+}
+
+export interface WhatIfResult {
+  current: WhatIfSide;
+  scenario: WhatIfSide;
+  monthlyPaymentDeltaSeK: number;
+  monthlyNetPaymentDeltaSeK: number;
+  yearlyNetPaymentDeltaSeK: number;
+}
+
+function calculateWhatIfSide(
+  portions: LoanPortion[],
+  rateChangePercentPoints: number,
+  monthlyAmortizationSeK: number,
+  numberOfBorrowers: 1 | 2
+): WhatIfSide {
+  const loanAmountSeK = portions.reduce((sum, p) => sum + Math.max(0, p.amountSeK), 0);
+  const monthlyInterestSeK = portions.reduce(
+    (sum, p) =>
+      sum + (Math.max(0, p.amountSeK) * Math.max(0, p.interestRate + rateChangePercentPoints)) / 100 / 12,
+    0
+  );
+  const averageRatePercent = loanAmountSeK > 0 ? (monthlyInterestSeK * 12 * 100) / loanAmountSeK : 0;
+  const amortizationSeK = Math.min(Math.max(0, monthlyAmortizationSeK), loanAmountSeK);
+  const monthlyInterestDeductionSeK =
+    calculateYearlyInterestDeduction(monthlyInterestSeK * 12, numberOfBorrowers) / 12;
+  const monthlyPaymentSeK = monthlyInterestSeK + amortizationSeK;
+
+  let monthsToDebtFree: number | null = null;
+  let totalInterestUntilDebtFreeSeK: number | null = null;
+  if (loanAmountSeK > 0 && amortizationSeK > 0) {
+    // Straight amortization: balance before month k is D - k*A.
+    const n = Math.ceil(loanAmountSeK / amortizationSeK);
+    const sumOfBalances = n * loanAmountSeK - (amortizationSeK * n * (n - 1)) / 2;
+    monthsToDebtFree = n;
+    totalInterestUntilDebtFreeSeK = (sumOfBalances * averageRatePercent) / 100 / 12;
+  }
+
+  return {
+    loanAmountSeK,
+    averageRatePercent,
+    monthlyInterestSeK,
+    monthlyAmortizationSeK: amortizationSeK,
+    monthlyPaymentSeK,
+    monthlyInterestDeductionSeK,
+    monthlyNetPaymentSeK: monthlyPaymentSeK - monthlyInterestDeductionSeK,
+    monthsToDebtFree,
+    totalInterestUntilDebtFreeSeK,
+  };
+}
+
+export function calculateWhatIf({
+  portions,
+  rateChangePercentPoints,
+  currentMonthlyAmortizationSeK,
+  newMonthlyAmortizationSeK,
+  numberOfBorrowers,
+}: WhatIfInput): WhatIfResult {
+  const current = calculateWhatIfSide(portions, 0, currentMonthlyAmortizationSeK, numberOfBorrowers);
+  const scenario = calculateWhatIfSide(
+    portions,
+    rateChangePercentPoints,
+    newMonthlyAmortizationSeK,
+    numberOfBorrowers
+  );
+  const monthlyNetPaymentDeltaSeK = scenario.monthlyNetPaymentSeK - current.monthlyNetPaymentSeK;
+
+  return {
+    current,
+    scenario,
+    monthlyPaymentDeltaSeK: scenario.monthlyPaymentSeK - current.monthlyPaymentSeK,
+    monthlyNetPaymentDeltaSeK,
+    yearlyNetPaymentDeltaSeK: monthlyNetPaymentDeltaSeK * 12,
+  };
 }
 
 export function generateScenarios(
@@ -374,7 +490,6 @@ export function generateScenarios(
   loanAmountsSeK: number[],
   interestRates: number[],
   loanTermYears: number,
-  annualIncomeSeK: number,
   minimumMonthlyAmortizationSeK = 0
 ): ScenarioResult[] {
   const scenarios: ScenarioResult[] = [];
@@ -389,8 +504,7 @@ export function generateScenarios(
       const monthlyInterestSeK = loanAmountSeK * (interestRate / 100 / 12);
       const amortizationRate = calculateRequiredAmortizationRate(
         loanAmountSeK,
-        housePriceSeK,
-        annualIncomeSeK
+        housePriceSeK
       );
       const monthlyAmortizationSeK = Math.max(
         (loanAmountSeK * amortizationRate) / 12,
